@@ -25,9 +25,12 @@ import Graphics.Rendering.Diagrams.Transform
 import Diagrams.TwoD.Ellipse
 import Diagrams.TwoD.Shapes
 import Diagrams.TwoD.Adjust (adjustDia2D, adjustSize)
+import Diagrams.TwoD.Text
+import Diagrams.TwoD.Path (Clip(..))
 
+import Control.Applicative ((<$>))
 import Control.Monad (when)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 
 import Data.VectorSpace
 
@@ -59,7 +62,7 @@ instance Backend Postscript R2 where
 
   withStyle _ s t (C r) = C $ do
     C.save
-    -- postscriptMiscStyle s
+    postscriptMiscStyle s
     r
     postscriptTransf t
     postscriptStyle s
@@ -76,6 +79,34 @@ instance Backend Postscript R2 where
 
 renderC :: (Renderable a Postscript, V a ~ R2) => a -> C.Render ()
 renderC a = case (render Postscript a) of C r -> r
+
+postscriptMiscStyle :: Style v -> C.Render ()
+postscriptMiscStyle s =
+  sequence_
+  . catMaybes $ [ handle clip
+                , handleFontFace
+                , handle fColor
+                ]
+  where handle :: AttributeClass a => (a -> C.Render ()) -> Maybe (C.Render ())
+        handle f = f `fmap` getAttr s
+        clip     = mapM_ (\p -> renderC p >> C.clip) . getClip
+        fSize    = fromMaybe 12 $ getFontSize <$> getAttr s
+        fFace    = fromMaybe "" $ getFont <$> getAttr s
+        fSlant   = fromFontSlant  . fromMaybe FontSlantNormal
+                 $ getFontSlant  <$> getAttr s
+        fWeight  = fromFontWeight . fromMaybe FontWeightNormal
+                 $ getFontWeight <$> getAttr s
+        handleFontFace = Just $ C.selectFontFace fFace fSlant fWeight fSize
+        fColor c = C.fillColor (getFillColor c)
+
+fromFontSlant :: FontSlant -> C.FontSlant
+fromFontSlant FontSlantNormal   = C.FontSlantNormal
+fromFontSlant FontSlantItalic   = C.FontSlantItalic
+fromFontSlant FontSlantOblique  = C.FontSlantOblique
+
+fromFontWeight :: FontWeight -> C.FontWeight
+fromFontWeight FontWeightNormal = C.FontWeightNormal
+fromFontWeight FontWeightBold   = C.FontWeightBold
 
 postscriptStyle :: Style v -> C.Render ()
 postscriptStyle s = foldr (>>) (return ())
@@ -126,3 +157,10 @@ instance Renderable (Path R2) Postscript where
     where renderTrail (P p, tr) = do
             uncurry C.moveTo p
             renderC tr
+
+instance Renderable Text Postscript where
+  render _ (Text tr str) = C $ do
+      C.save
+      postscriptTransf tr
+      C.showTextCentered str
+      C.restore

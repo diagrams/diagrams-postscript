@@ -30,6 +30,13 @@ module Graphics.Rendering.Postscript
   , lineWidth
   , lineCap
   , lineJoin
+  , showText
+  , showTextCentered
+  , clip
+  
+  , FontSlant(..)
+  , FontWeight(..)
+  , selectFontFace
   ) where
 
 import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..))
@@ -37,6 +44,8 @@ import Control.Monad.Writer
 import Data.List(intersperse)
 import Data.DList(DList,toList,fromList)
 import Data.Word(Word8)
+import Data.Char(ord,isPrint)
+import Numeric(showIntAtBase)
 import System.IO (openFile, hPutStr, IOMode(..), hClose)
 
 newtype Render m = Render { runRender :: WriterT (DList String) IO m }
@@ -60,6 +69,9 @@ withEPSSurface file w h f = f s
 
 renderPS :: String -> Render ()
 renderPS s = tell $ fromList [s, "\n"]
+
+clip :: Render ()
+clip = renderPS "clip"
 
 mkPSCall :: Show a => String -> [a] -> Render()
 mkPSCall n vs = renderPS . concat $ intersperse " " (map show vs) ++ [" ", n]
@@ -96,6 +108,12 @@ fill = renderPS "fill"
 
 fillPreserve :: Render ()
 fillPreserve = renderPS "gsave fill grestore"
+
+showText :: String -> Render ()
+showText = (>> renderPS " show") . stringPS
+
+showTextCentered :: String -> Render()
+showTextCentered = (>> renderPS " showcentered") . stringPS
 
 transform :: Double -> Double -> Double -> Double -> Double -> Double -> Render ()
 transform ax ay bx by tx ty = 
@@ -167,6 +185,19 @@ scale x y = mkPSCall "scale" [x,y]
 rotate :: Double -> Render ()
 rotate t = mkPSCall "rotate" [t]
 
+stringPS :: String -> Render ()
+stringPS ss = tell (fromList ("(" : map escape ss)) >> tell (fromList [")"])
+  where escape '\n' = "\\n"
+        escape '\r' = "\\r"
+        escape '\t' = "\\t"
+        escape '\b' = "\\b"
+        escape '\f' = "\\f"
+        escape '\\' = "\\"
+        escape '('  = "\\("
+        escape ')'  = "\\)"
+        escape c | isPrint c = [c]
+                 | otherwise = "\\" ++ showIntAtBase 7 ("01234567"!!) (ord c) ""
+
 epsHeader w h = concat
           [ "%!PS-Adobe-3.0 EPSF-3.0\n"
           , "%%Creator: diagrams-eps 0.1\n"
@@ -176,6 +207,8 @@ epsHeader w h = concat
           , "%%BeginProlog\n"
           , "%%BeginResource: procset diagrams-postscript 0 0\n"
           , "/s { 0.0 currentlinewidth ne { stroke } if } bind def\n"
+          , "/nvhalf { 2 div neg exch 2 div neg exch } bind def\n"
+          , "/showcentered { dup stringwidth nvhalf moveto show } bind def\n"
           , "%%EndResource\n"
           , "%%EndProlog\n"
           , "%%BeginSetup\n"
@@ -186,3 +219,24 @@ epsFooter = concat
           [ "%%PageTrailer\n"
           , "%%EndPage: 1\n"
           ]
+
+---------------------------
+-- Font
+data FontSlant = FontSlantNormal
+               | FontSlantItalic
+               | FontSlantOblique
+               | FontSlant Double
+            deriving (Show, Eq)
+
+data FontWeight = FontWeightNormal
+                | FontWeightBold
+            deriving (Show, Eq)
+            
+selectFontFace :: String -> FontSlant -> FontWeight -> Double -> Render ()
+selectFontFace [] _ _ _ = renderPS "/Times-Roman 14 selectfont"
+selectFontFace n i b s =
+    renderPS $ concat ["/" ++ font ++ " " ++ show s ++ " selectfont"]
+  where
+    font = map f n
+    f ' ' = '-'
+    f c   = c
