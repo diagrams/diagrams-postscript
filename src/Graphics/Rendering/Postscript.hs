@@ -18,6 +18,10 @@ module Graphics.Rendering.Postscript
   , transform
   , save
   , restore
+  , gsave
+  , grestore
+  , saveMatrix
+  , restoreMatrix
   , translate
   , scale
   , rotate
@@ -67,7 +71,7 @@ closePath :: Render ()
 closePath = renderPS "closepath"
 
 arc :: Double -> Double -> Double -> Double -> Double -> Render ()
-arc a b c d e = mkPSCall "arc" [a,b,c,d,e]
+arc a b c d e = mkPSCall "arc" [a,b,c, d * 180 / pi, e* 180 / pi]
 
 moveTo :: Double -> Double -> Render ()
 moveTo x y = mkPSCall "moveto" [x,y]
@@ -85,7 +89,7 @@ relCurveTo :: Double -> Double -> Double -> Double -> Double -> Double -> Render
 relCurveTo ax ay bx by cx cy = mkPSCall "rcurveto" [ax,ay,bx,by,cx,cy]
 
 stroke :: Render ()
-stroke = renderPS "stroke"
+stroke = renderPS "s"
 
 fill :: Render ()
 fill = renderPS "fill"
@@ -108,6 +112,18 @@ save = renderPS "save"
 
 restore :: Render ()
 restore = renderPS "restore"
+
+gsave :: Render ()
+gsave = renderPS "gsave"
+
+grestore :: Render ()
+grestore = renderPS "grestore"
+
+saveMatrix :: Render ()
+saveMatrix = renderPS "matrix currentmatrix"
+
+restoreMatrix :: Render ()
+restoreMatrix = renderPS "setmatrix"
 
 byteRange :: Double -> Word8
 byteRange d = floor (d * 255)
@@ -158,6 +174,9 @@ epsHeader w h = concat
           , "%%Pages: 1\n"
           , "%%EndComments\n\n"
           , "%%BeginProlog\n"
+          , "%%BeginResource: procset diagrams-postscript 0 0\n"
+          , "/s { 0.0 currentlinewidth ne { stroke } if } bind def\n"
+          , "%%EndResource\n"
           , "%%EndProlog\n"
           , "%%BeginSetup\n"
           , "%%EndSetup\n"

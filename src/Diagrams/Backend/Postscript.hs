@@ -105,13 +105,12 @@ instance Renderable Ellipse Postscript where
         (xs,ys)   = ellipseScale ell
         Rad th    = ellipseAngle ell
     C.newPath
-    C.save
+    C.saveMatrix
     C.translate xc yc
     C.rotate th
     C.scale xs ys
     C.arc 0 0 1 0 (2*pi)
-    C.closePath
-    C.restore
+    C.restoreMatrix
 
 instance Renderable (Segment R2) Postscript where
   render _ (Linear v) = C $ uncurry C.relLineTo v
