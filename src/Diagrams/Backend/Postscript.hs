@@ -78,7 +78,7 @@ instance Backend Postscript R2 where
     where getSize (EPS (w,h)) = (fromIntegral w, fromIntegral h)
 
 renderC :: (Renderable a Postscript, V a ~ R2) => a -> C.Render ()
-renderC a = case (render Postscript a) of C r -> r
+renderC a = case render Postscript a of C r -> r
 
 postscriptMiscStyle :: Style v -> C.Render ()
 postscriptMiscStyle s =
@@ -109,7 +109,7 @@ fromFontWeight FontWeightNormal = C.FontWeightNormal
 fromFontWeight FontWeightBold   = C.FontWeightBold
 
 postscriptStyle :: Style v -> C.Render ()
-postscriptStyle s = foldr (>>) (return ())
+postscriptStyle s = sequence_ -- foldr (>>) (return ())
               . catMaybes $ [ handle fColor
                             , handle lColor
                             , handle lWidth

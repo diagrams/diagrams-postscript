@@ -41,6 +41,7 @@ module Graphics.Rendering.Postscript
 
 import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..))
 import Control.Monad.Writer
+import Control.Monad(when)
 import Data.List(intersperse)
 import Data.DList(DList,toList,fromList)
 import Data.Word(Word8)
@@ -55,7 +56,7 @@ data Surface = Surface { header :: String, footer :: String, width :: Int, heigh
 
 renderWith :: MonadIO m => Surface -> Render a -> m a
 renderWith s r = liftIO $ do 
-    (v,ss) <- runWriterT $ (runRender r)
+    (v,ss) <- runWriterT (runRender r)
     h <- openFile (fileName s) WriteMode
     hPutStr h (header s)
     mapM_ (hPutStr h) (toList ss)
@@ -116,14 +117,12 @@ showTextCentered :: String -> Render()
 showTextCentered = (>> renderPS " showcentered") . stringPS
 
 transform :: Double -> Double -> Double -> Double -> Double -> Double -> Render ()
-transform ax ay bx by tx ty = 
-    if vs /= [1.0,0.0,0.0,1.0,0.0,0.0]
-      then renderPS (matrixPS vs ++ " concat")
-      else return ()
+transform ax ay bx by tx ty = when (vs /= [1.0,0.0,0.0,1.0,0.0,0.0]) $
+      renderPS (matrixPS vs ++ " concat")
     where vs  = [ax,ay,bx,by,tx,ty]
 
 matrixPS :: Show a => [a] -> String
-matrixPS vs = concat $ intersperse " " ("[" : (map show vs) ++ ["]"])
+matrixPS vs = unwords ("[" : map show vs ++ ["]"])
 
 save :: Render ()
 save = renderPS "save"
@@ -196,7 +195,7 @@ stringPS ss = tell (fromList ("(" : map escape ss)) >> tell (fromList [")"])
         escape '('  = "\\("
         escape ')'  = "\\)"
         escape c | isPrint c = [c]
-                 | otherwise = "\\" ++ showIntAtBase 7 ("01234567"!!) (ord c) ""
+                 | otherwise = '\\' : showIntAtBase 7 ("01234567"!!) (ord c) ""
 
 epsHeader w h = concat
           [ "%!PS-Adobe-3.0 EPSF-3.0\n"
@@ -235,7 +234,7 @@ data FontWeight = FontWeightNormal
 selectFontFace :: String -> FontSlant -> FontWeight -> Double -> Render ()
 selectFontFace [] _ _ _ = renderPS "/Times-Roman 14 selectfont"
 selectFontFace n i b s =
-    renderPS $ concat ["/" ++ font ++ " " ++ show s ++ " selectfont"]
+    renderPS $ concat ["/", font, " ", show s, " selectfont"]
   where
     font = map f n
     f ' ' = '-'
