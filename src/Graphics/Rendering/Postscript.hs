@@ -199,7 +199,7 @@ stringPS ss = tell (fromList ("(" : map escape ss)) >> tell (fromList [")"])
 
 epsHeader w h = concat
           [ "%!PS-Adobe-3.0 EPSF-3.0\n"
-          , "%%Creator: diagrams-eps 0.1\n"
+          , "%%Creator: diagrams-postscript 0.1\n"
           , "%%BoundingBox: 0 0 ", show w, " ", show h, "\n"
           , "%%Pages: 1\n"
           , "%%EndComments\n\n"
