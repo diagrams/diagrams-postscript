@@ -43,9 +43,7 @@ data Postscript = Postscript
     deriving Typeable
 
 -- | Postscript could output to several file formats, which each have their own associated properties that affect the output.
-data OutputFormat =
-  EPS { epsSize :: (Int, Int) -- ^ the size of the output is given in points
-      }
+data OutputFormat = EPS
 
 instance Monoid (Render Postscript R2) where
   mempty  = C $ return ()
@@ -57,6 +55,7 @@ instance Backend Postscript R2 where
   type Result  Postscript R2 = IO ()
   data Options Postscript R2 = PostscriptOptions
           { fileName     :: String       -- ^ the name of the file you want generated
+          , psSize       :: SizeSpec2D   -- ^ the requested size
           , outputFormat :: OutputFormat -- ^ the output format and associated options
           }
 
@@ -69,13 +68,23 @@ instance Backend Postscript R2 where
     C.stroke
     C.restore
 
-  doRender _ options (C r) = 
+  doRender _ (PostscriptOptions file size out) (C r) =
     let surfaceF surface = C.renderWith surface r
-    in  case outputFormat options of
-          EPS (w,h) -> C.withEPSSurface (fileName options) w h surfaceF
+        -- Everything except Dims is arbitrary. The backend
+        -- should have first run 'adjustDia' to update the
+        -- final size of the diagram with explicit dimensions,
+        -- so normally we would only expect to get Dims anyway.
+        (w,h) = case size of
+                  Width w'   -> (w',w')
+                  Height h'  -> (h',h')
+                  Dims w' h' -> (w',h')
+                  Absolute   -> (100,100)
 
-  adjustDia c opts d = adjustDia2D (getSize . outputFormat) c opts d
-    where getSize (EPS (w,h)) = (fromIntegral w, fromIntegral h)
+    in  case out of
+          EPS -> C.withEPSSurface file (round w) (round h) surfaceF
+
+  adjustDia c opts d = adjustDia2D psSize setPsSize c opts d
+    where setPsSize sz o = o { psSize = sz }
 
 renderC :: (Renderable a Postscript, V a ~ R2) => a -> C.Render ()
 renderC a = case render Postscript a of C r -> r

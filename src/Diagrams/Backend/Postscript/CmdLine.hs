@@ -45,8 +45,8 @@ import System.Posix.Process (executeFile)
 #endif
 
 data DiagramOpts = DiagramOpts
-                   { width     :: Int
-                   , height    :: Int
+                   { width     :: Maybe Int
+                   , height    :: Maybe Int
                    , output    :: FilePath
                    , selection :: Maybe String
 #ifdef CMDLINELOOP
@@ -59,13 +59,13 @@ data DiagramOpts = DiagramOpts
 
 diagramOpts :: String -> Bool -> DiagramOpts
 diagramOpts prog sel = DiagramOpts
-  { width =  400
+  { width =  def
              &= typ "INT"
              &= help "Desired width of the output image (default 400)"
 
-  , height = 400
-              &= typ "INT"
-              &= help "Desired height of the output image (default 400)"
+  , height = def
+             &= typ "INT"
+             &= help "Desired height of the output image (default 400)"
 
   , output = def
            &= typFile
@@ -103,8 +103,15 @@ chooseRender opts d =
     [""] -> putStrLn "No output file given."
     ps | last ps `elem` ["eps"] -> do
            let outfmt = case last ps of
-                 _     -> EPS (fromIntegral $ width opts, fromIntegral $ height opts)
-           renderDia Postscript (PostscriptOptions (output opts) outfmt) d
+                          _     -> EPS
+               sizeSpec = case (width opts, height opts) of
+                            (Nothing, Nothing) -> Absolute
+                            (Just w, Nothing)  -> Width (fromIntegral w)
+                            (Nothing, Just h)  -> Height (fromIntegral h)
+                            (Just w, Just h)   -> Dims (fromIntegral w)
+                                                       (fromIntegral h)
+
+           renderDia Postscript (PostscriptOptions (output opts) sizeSpec outfmt) d
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
 
 multiMain :: [(String, Diagram Postscript R2)] -> IO ()
