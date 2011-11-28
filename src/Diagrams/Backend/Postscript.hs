@@ -139,19 +139,6 @@ postscriptTransf t = C.transform a1 a2 b1 b2 c1 c2
         (b1,b2) = apply t (0,1)
         (c1,c2) = transl t
 
-instance Renderable Ellipse Postscript where
-  render _ ell = C $ do
-    let P (xc,yc) = ellipseCenter ell
-        (xs,ys)   = ellipseScale ell
-        Rad th    = ellipseAngle ell
-    C.newPath
-    C.saveMatrix
-    C.translate xc yc
-    C.rotate th
-    C.scale xs ys
-    C.arc 0 0 1 0 (2*pi)
-    C.restoreMatrix
-
 instance Renderable (Segment R2) Postscript where
   render _ (Linear v) = C $ uncurry C.relLineTo v
   render _ (Cubic (x1,y1) (x2,y2) (x3,y3)) = C $ C.relCurveTo x1 y1 x2 y2 x3 y3

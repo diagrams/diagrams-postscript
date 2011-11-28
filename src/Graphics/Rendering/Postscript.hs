@@ -142,13 +142,9 @@ saveMatrix = renderPS "matrix currentmatrix"
 restoreMatrix :: Render ()
 restoreMatrix = renderPS "setmatrix"
 
-byteRange :: Double -> Word8
-byteRange d = floor (d * 255)
-
-colorPS :: Color c => c -> [Word8]
-colorPS c = [ s r, s g, s b ]
-  where s = byteRange
-        (r,g,b,a) = colorToRGBA c
+colorPS :: Color c => c -> [Double]
+colorPS c = [ r, g, b ]
+  where (r,g,b,_) = colorToRGBA c
 
 strokeColor :: (Color c) => c -> Render ()
 strokeColor c = mkPSCall "setrgbcolor" (colorPS c)
