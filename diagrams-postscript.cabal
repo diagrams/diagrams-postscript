@@ -23,7 +23,7 @@ Library
   Hs-source-dirs:      src
   Build-depends:       base >= 4.3 && < 4.5,
                        mtl >= 2.0 && < 3.0,
-                       process >= 1.0 && < 1.1,
+                       process >= 1.0 && < 1.2,
                        directory >= 1.0 && < 1.2,
                        old-time >= 1.0 && < 1.1,
                        dlist >= 0.5 && < 0.6,
