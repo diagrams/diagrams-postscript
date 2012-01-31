@@ -18,7 +18,7 @@ module Diagrams.Backend.Postscript.CmdLine
        , Postscript
        ) where
 
-import Diagrams.Prelude hiding (width, height)
+import Diagrams.Prelude hiding (width, height, interval)
 import Diagrams.Backend.Postscript
 
 import System.Console.CmdArgs.Implicit hiding (args)

@@ -155,7 +155,7 @@ instance Renderable (Path R2) Postscript where
             renderC tr
 
 instance Renderable Text Postscript where
-  render _ (Text tr str) = C $ do
+  render _ (Text tr _ str) = C $ do
       C.save
       postscriptTransf tr
       C.showTextCentered str
