@@ -136,15 +136,15 @@ postscriptStyle s = sequence_ -- foldr (>>) (return ())
 
 postscriptTransf :: Transformation R2 -> C.Render ()
 postscriptTransf t = C.transform a1 a2 b1 b2 c1 c2
-  where (a1,a2) = unv2 $ apply t unitX
-        (b1,b2) = unv2 $ apply t unitY
-        (c1,c2) = unv2 $ transl t
+  where (a1,a2) = unr2 $ apply t unitX
+        (b1,b2) = unr2 $ apply t unitY
+        (c1,c2) = unr2 $ transl t
 
 instance Renderable (Segment R2) Postscript where
-  render _ (Linear (unv2 -> v)) = C $ uncurry C.relLineTo v
-  render _ (Cubic (unv2 -> (x1,y1))
-                  (unv2 -> (x2,y2))
-                  (unv2 -> (x3,y3))) = C $ C.relCurveTo x1 y1 x2 y2 x3 y3
+  render _ (Linear (unr2 -> v)) = C $ uncurry C.relLineTo v
+  render _ (Cubic (unr2 -> (x1,y1))
+                  (unr2 -> (x2,y2))
+                  (unr2 -> (x3,y3))) = C $ C.relCurveTo x1 y1 x2 y2 x3 y3
 
 instance Renderable (Trail R2) Postscript where
   render _ (Trail segs c) = C $ do

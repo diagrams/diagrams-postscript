@@ -23,13 +23,13 @@ circuits = zipWith number cs' [1..]
          # grid 3
          # centerXY # pad 1.1
   where
-    v = (1/2,1/2)
+    v = r2 (1/2,1/2)
     s = square 1
     l = (origin .-^ v) ~~ (origin .+^ v)
     c = s <> l
     t = eqTriangle 1
     t' = scaleY 0.5 $ eqTriangle 1
-    tl = alignT t <> origin ~~ (origin .-^ (1/2,0))
+    tl = alignT t <> origin ~~ (origin .-^ r2 (1/2,0))
     x = s <> l <> reflectY l
     cs = [ pad 1.5 x 
          , t' === x
