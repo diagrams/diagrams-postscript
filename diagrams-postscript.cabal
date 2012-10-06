@@ -1,9 +1,9 @@
 Name:                diagrams-postscript
-Version:             0.1
+Version:             0.6
 Synopsis:            Postscript backend for diagrams drawing EDSL
 Description:         This package provides a modular backend for rendering
                      diagrams created with the diagrams EDSL using Postscript.
-Homepage:            http://code.haskell.org/diagrams/
+Homepage:            http://projects.haskell.org/diagrams/
 License:             BSD3
 License-file:        LICENSE
 Author:              Ryan Yates
@@ -13,25 +13,25 @@ Category:            Graphics
 Build-type:          Simple
 Cabal-version:       >=1.6
 Source-repository head
-  type:     darcs
-  location: http://patch-tag.com/r/fryguybob/diagrams-postscript
+  type:     git
+  location: http://github.com/fryguybob/diagrams-postscript
 
 Library
   Exposed-modules:     Diagrams.Backend.Postscript
                        Diagrams.Backend.Postscript.CmdLine
                        Graphics.Rendering.Postscript
   Hs-source-dirs:      src
-  Build-depends:       base >= 4.3 && < 4.6,
+  Build-depends:       base >= 4.3 && < 4.7,
                        mtl >= 2.0 && < 3.0,
                        process >= 1.0 && < 1.2,
                        directory >= 1.0 && < 1.2,
                        old-time >= 1.0 && < 1.2,
                        dlist >= 0.5 && < 0.6,
                        vector-space >= 0.7 && < 0.9,
-                       diagrams-core >= 0.5 && < 0.6,
-                       diagrams-lib >= 0.5 && < 0.6,
-                       cmdargs >= 0.6 && < 0.10,
-                       split >= 0.1.2 && < 0.2
+                       diagrams-core >= 0.5 && < 0.7,
+                       diagrams-lib >= 0.5 && < 0.7,
+                       cmdargs >= 0.6 && < 0.11,
+                       split >= 0.1.2 && < 0.3
   if !os(windows)
     cpp-options: -DCMDLINELOOP
     Build-depends:     unix >= 2.4 && < 2.6

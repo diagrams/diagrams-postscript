@@ -21,7 +21,7 @@ import qualified Graphics.Rendering.Postscript as C
 
 import Diagrams.Prelude
 
-import Graphics.Rendering.Diagrams.Transform
+import Diagrams.Core.Transform
 
 import Diagrams.TwoD.Ellipse
 import Diagrams.TwoD.Shapes
