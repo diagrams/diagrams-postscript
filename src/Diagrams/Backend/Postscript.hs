@@ -5,6 +5,7 @@
            , TypeSynonymInstances
            , DeriveDataTypeable
            , ViewPatterns
+           , NoMonomorphismRestriction
   #-}
 {-|
   The EPS backend.
@@ -25,7 +26,8 @@ import Diagrams.Core.Transform
 
 import Diagrams.TwoD.Ellipse
 import Diagrams.TwoD.Shapes
-import Diagrams.TwoD.Adjust (adjustDia2D, adjustSize)
+import Diagrams.TwoD.Adjust (adjustDia2D)
+import Diagrams.TwoD.Size (requiredScaleT)
 import Diagrams.TwoD.Text
 import Diagrams.TwoD.Path (Clip(..))
 
@@ -35,7 +37,10 @@ import Data.Maybe (catMaybes, fromMaybe)
 
 import Data.VectorSpace
 
-import Data.Monoid
+import Data.Monoid hiding ((<>))
+import Data.Monoid.MList
+import Data.Monoid.Split
+import qualified Data.List.NonEmpty as N
 import qualified Data.Foldable as F
 import Data.Typeable
 
@@ -75,17 +80,41 @@ instance Backend Postscript R2 where
         -- should have first run 'adjustDia' to update the
         -- final size of the diagram with explicit dimensions,
         -- so normally we would only expect to get Dims anyway.
-        (w,h) = case size of
-                  Width w'   -> (w',w')
-                  Height h'  -> (h',h')
-                  Dims w' h' -> (w',h')
-                  Absolute   -> (100,100)
+        (w,h) = sizeFromSpec size
 
     in  case out of
           EPS -> C.withEPSSurface file (round w) (round h) surfaceF
 
   adjustDia c opts d = adjustDia2D psSize setPsSize c opts d
     where setPsSize sz o = o { psSize = sz }
+    
+sizeFromSpec size = case size of
+   Width w'   -> (w',w')
+   Height h'  -> (h',h')
+   Dims w' h' -> (w',h')
+   Absolute   -> (100,100)
+
+mkMax (a,b) = (Max a, Max b)
+fromMaxPair (Max a, Max b) = (a,b)
+
+instance MultiBackend Postscript R2 where
+   renderDias b opts ds = doRenderPages b (combineSizes (map fst rs)) (map snd rs) >> return ()
+     where
+       rs = map mkRender ds
+       mkRender d = (opts', mconcat . map renderOne . prims $ d')
+         where
+           (opts', d') = adjustDia b opts d
+           renderOne (p, (M t,      s)) = withStyle b s mempty (render b (transform t p))
+           renderOne (p, (t1 :| t2, s)) = withStyle b s t1 (render b (transform (t1 <> t2) p))
+
+       combineSizes (o:os) = o { psSize = uncurry Dims . fromMaxPair . sconcat $ f o N.:| fmap f os }
+         where f = mkMax . sizeFromSpec . psSize
+      
+       doRenderPages _ (PostscriptOptions file size out) rs =
+        let surfaceF surface = C.renderPagesWith surface (map (\(C r) -> r) rs)
+            (w,h) = sizeFromSpec size
+        in case out of
+           EPS -> C.withEPSSurface file (round w) (round h) surfaceF
 
 renderC :: (Renderable a Postscript, V a ~ R2) => a -> C.Render ()
 renderC a = case render Postscript a of C r -> r

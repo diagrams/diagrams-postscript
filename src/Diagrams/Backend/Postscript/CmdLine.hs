@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, CPP #-}
+{-# LANGUAGE DeriveDataTypeable, CPP, NoMonomorphismRestriction #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.Postscript.CmdLine
@@ -14,7 +14,7 @@
 module Diagrams.Backend.Postscript.CmdLine
        ( defaultMain
        , multiMain
-
+       , pagesMain
        , Postscript
        ) where
 
@@ -92,16 +92,17 @@ defaultMain d = do
   prog <- getProgName
   args <- getArgs
   opts <- cmdArgs (diagramOpts prog False)
-  chooseRender opts d
+  chooseRender opts (renderDia' d)
 #ifdef CMDLINELOOP
   when (loop opts) (waitForChange Nothing opts prog args)
 #endif
 
-chooseRender :: DiagramOpts -> Diagram Postscript R2 -> IO ()
-chooseRender opts d =
+chooseRender :: DiagramOpts -> (Options Postscript R2 -> IO ()) -> IO ()
+chooseRender opts render =
   case splitOn "." (output opts) of
     [""] -> putStrLn "No output file given."
-    ps | last ps `elem` ["eps"] -> do
+    ps |  last ps `elem` ["eps"] 
+       || last ps `elem` ["ps"] -> do
            let outfmt = case last ps of
                           _     -> EPS
                sizeSpec = case (width opts, height opts) of
@@ -111,18 +112,30 @@ chooseRender opts d =
                             (Just w, Just h)   -> Dims (fromIntegral w)
                                                        (fromIntegral h)
 
-           renderDia Postscript (PostscriptOptions (output opts) sizeSpec outfmt) d
+           render (PostscriptOptions (output opts) sizeSpec outfmt)
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
+       
+renderDias' :: [Diagram Postscript R2] -> Options Postscript R2 -> IO ()
+renderDias' ds o = renderDias Postscript o ds >> return ()
+
+renderDia' :: Diagram Postscript R2 -> Options Postscript R2 -> IO ()
+renderDia' d o = renderDia Postscript o d >> return ()
+       
+pagesMain :: [Diagram Postscript R2] -> IO ()
+pagesMain ds = do
+  prog <- getProgName
+  opts <- cmdArgs (diagramOpts prog True)
+  chooseRender opts (renderDias' ds)
 
 multiMain :: [(String, Diagram Postscript R2)] -> IO ()
 multiMain ds = do
   prog <- getProgName
   opts <- cmdArgs (diagramOpts prog True)
   case selection opts of
-    Nothing  -> putStrLn "No diagram selected."
+    Nothing  -> chooseRender opts (renderDias' (map snd ds)) -- putStrLn "No diagram selected."
     Just sel -> case lookup sel ds of
       Nothing -> putStrLn $ "Unknown diagram: " ++ sel
-      Just d  -> chooseRender opts d
+      Just d  -> chooseRender opts (renderDia' d)
 
 #ifdef CMDLINELOOP
 waitForChange :: Maybe ClockTime -> DiagramOpts -> String -> [String] -> IO ()

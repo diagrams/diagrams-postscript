@@ -3,6 +3,7 @@
 module Graphics.Rendering.Postscript
   ( Render(..)
   , renderWith
+  , renderPagesWith
   , withEPSSurface
   , newPath
   , moveTo
@@ -52,17 +53,33 @@ import System.IO (openFile, hPutStr, IOMode(..), hClose)
 newtype Render m = Render { runRender :: WriterT (DList String) IO m }
   deriving (Functor, Monad, MonadWriter (DList String))
 
-data Surface = Surface { header :: String, footer :: String, width :: Int, height :: Int, fileName :: String } 
+data Surface = Surface { header :: Int -> String, footer :: Int -> String, width :: Int, height :: Int, fileName :: String } 
 
 renderWith :: MonadIO m => Surface -> Render a -> m a
 renderWith s r = liftIO $ do 
     (v,ss) <- runWriterT (runRender r)
     h <- openFile (fileName s) WriteMode
-    hPutStr h (header s)
+    hPutStr h (header s 1)
     mapM_ (hPutStr h) (toList ss)
-    hPutStr h (footer s)
+    hPutStr h (footer s 1)
     hClose h
     return v
+    
+renderPagesWith :: MonadIO m => Surface -> [Render a] -> m [a]
+renderPagesWith s rs = liftIO $ do 
+    h <- openFile (fileName s) WriteMode
+    hPutStr h (header s (length rs))
+    
+    vs <- mapM (page h) (zip rs [1..])
+    
+    hClose h
+    return vs
+  where 
+    page h (r,i) = do
+      (v,ss) <- runWriterT (runRender r)
+      mapM_ (hPutStr h) (toList ss)
+      hPutStr h (footer s i)
+      return v
 
 withEPSSurface :: String -> Int -> Int -> (Surface -> IO a) -> IO a
 withEPSSurface file w h f = f s
@@ -193,11 +210,11 @@ stringPS ss = tell (fromList ("(" : map escape ss)) >> tell (fromList [")"])
         escape c | isPrint c = [c]
                  | otherwise = '\\' : showIntAtBase 7 ("01234567"!!) (ord c) ""
 
-epsHeader w h = concat
-          [ "%!PS-Adobe-3.0 EPSF-3.0\n"
+epsHeader w h pages = concat
+          [ "%!PS-Adobe-3.0", if pages == 1 then " EPSF-3.0\n" else "\n"
           , "%%Creator: diagrams-postscript 0.1\n"
           , "%%BoundingBox: 0 0 ", show w, " ", show h, "\n"
-          , "%%Pages: 1\n"
+          , "%%Pages: ", show pages, "\n"
           , "%%EndComments\n\n"
           , "%%BeginProlog\n"
           , "%%BeginResource: procset diagrams-postscript 0 0\n"
@@ -210,9 +227,10 @@ epsHeader w h = concat
           , "%%EndSetup\n"
           , "%%Page: 1 1\n"
           ]
-epsFooter = concat
-          [ "%%PageTrailer\n"
-          , "%%EndPage: 1\n"
+epsFooter page = concat
+          [ "showpage\n"
+          , "%%PageTrailer\n"
+          , "%%EndPage: ", show page, "\n"
           ]
 
 ---------------------------
