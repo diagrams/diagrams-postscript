@@ -29,7 +29,7 @@ import Diagrams.TwoD.Shapes
 import Diagrams.TwoD.Adjust (adjustDia2D)
 import Diagrams.TwoD.Size (requiredScaleT)
 import Diagrams.TwoD.Text
-import Diagrams.TwoD.Path (Clip(..))
+import Diagrams.TwoD.Path (Clip(..), getFillRule)
 
 import Control.Applicative ((<$>))
 import Control.Monad (when)
@@ -125,6 +125,7 @@ postscriptMiscStyle s =
   . catMaybes $ [ handle clip
                 , handleFontFace
                 , handle fColor
+                , handle lFillRule
                 ]
   where handle :: AttributeClass a => (a -> C.Render ()) -> Maybe (C.Render ())
         handle f = f `fmap` getAttr s
@@ -137,6 +138,7 @@ postscriptMiscStyle s =
                  $ getFontWeight <$> getAttr s
         handleFontFace = Just $ C.selectFontFace fFace fSlant fWeight fSize
         fColor c = C.fillColor (getFillColor c)
+        lFillRule = C.setFillRule . getFillRule
 
 fromFontSlant :: FontSlant -> C.FontSlant
 fromFontSlant FontSlantNormal   = C.FontSlantNormal
@@ -154,6 +156,7 @@ postscriptStyle s = sequence_ -- foldr (>>) (return ())
                             , handle lWidth
                             , handle lJoin
                             , handle lCap
+                            , handle lDashing
                             ]
   where handle :: (AttributeClass a) => (a -> C.Render ()) -> Maybe (C.Render ())
         handle f = f `fmap` getAttr s
@@ -162,6 +165,8 @@ postscriptStyle s = sequence_ -- foldr (>>) (return ())
         lWidth = C.lineWidth . getLineWidth
         lCap = C.lineCap . getLineCap
         lJoin = C.lineJoin . getLineJoin
+        lDashing (getDashing -> Dashing ds offs) =
+          C.setDash ds offs
 
 postscriptTransf :: Transformation R2 -> C.Render ()
 postscriptTransf t = C.transform a1 a2 b1 b2 c1 c2

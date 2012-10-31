@@ -1,7 +1,8 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards #-}
 
 module Graphics.Rendering.Postscript
   ( Render(..)
+  , PSWriter(..)
   , renderWith
   , renderPagesWith
   , withEPSSurface
@@ -31,6 +32,8 @@ module Graphics.Rendering.Postscript
   , lineWidth
   , lineCap
   , lineJoin
+  , setDash
+  , setFillRule
   , showText
   , showTextCentered
   , clip
@@ -41,7 +44,9 @@ module Graphics.Rendering.Postscript
   ) where
 
 import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..))
+import Diagrams.TwoD.Path hiding (stroke)
 import Control.Monad.Writer
+import Control.Monad.State
 import Control.Monad(when)
 import Data.List(intersperse)
 import Data.DList(DList,toList,fromList)
@@ -50,14 +55,35 @@ import Data.Char(ord,isPrint)
 import Numeric(showIntAtBase)
 import System.IO (openFile, hPutStr, IOMode(..), hClose)
 
-newtype Render m = Render { runRender :: WriterT (DList String) IO m }
+data DrawState = DS
+                 { _fillRule :: FillRule
+                 } deriving (Eq)
+                 
+emptyDS :: DrawState
+emptyDS = DS Winding
+
+data RenderState = RS
+                   { _drawState :: DrawState
+                   , _saved     :: [DrawState]
+                   }
+
+emptyRS :: RenderState
+emptyRS = RS emptyDS []
+
+newtype PSWriter m = PSWriter { runPSWriter :: WriterT (DList String) IO m }
   deriving (Functor, Monad, MonadWriter (DList String))
+
+newtype Render m = Render { runRender :: StateT RenderState PSWriter m }
+  deriving (Functor, Monad, MonadState RenderState)
 
 data Surface = Surface { header :: Int -> String, footer :: Int -> String, width :: Int, height :: Int, fileName :: String } 
 
+doRender :: Render a -> PSWriter a
+doRender r = evalStateT (runRender r) emptyRS
+
 renderWith :: MonadIO m => Surface -> Render a -> m a
 renderWith s r = liftIO $ do 
-    (v,ss) <- runWriterT (runRender r)
+    (v,ss) <- runWriterT . runPSWriter . doRender $ r
     h <- openFile (fileName s) WriteMode
     hPutStr h (header s 1)
     mapM_ (hPutStr h) (toList ss)
@@ -76,7 +102,7 @@ renderPagesWith s rs = liftIO $ do
     return vs
   where 
     page h (r,i) = do
-      (v,ss) <- runWriterT (runRender r)
+      (v,ss) <- runWriterT . runPSWriter . doRender $ r
       mapM_ (hPutStr h) (toList ss)
       hPutStr h (footer s i)
       return v
@@ -86,13 +112,16 @@ withEPSSurface file w h f = f s
   where s = Surface (epsHeader w h) epsFooter w h file
 
 renderPS :: String -> Render ()
-renderPS s = tell $ fromList [s, "\n"]
+renderPS s = Render . lift . tell $ fromList [s, "\n"]
 
 clip :: Render ()
 clip = renderPS "clip"
 
 mkPSCall :: Show a => String -> [a] -> Render()
 mkPSCall n vs = renderPS . concat $ intersperse " " (map show vs) ++ [" ", n]
+
+mkPSCall' :: String -> [String] -> Render()
+mkPSCall' n vs = renderPS . concat $ intersperse " " vs ++ [" ", n]
 
 newPath :: Render ()
 newPath = renderPS "newpath"
@@ -122,10 +151,17 @@ stroke :: Render ()
 stroke = renderPS "s"
 
 fill :: Render ()
-fill = renderPS "fill"
+fill = do
+    (RS (DS {..}) _) <- get
+    case _fillRule of
+        Winding -> renderPS "fill"
+        EvenOdd -> renderPS "eofill"
 
 fillPreserve :: Render ()
-fillPreserve = renderPS "gsave fill grestore"
+fillPreserve = do
+    gsave
+    fill
+    grestore
 
 showText :: String -> Render ()
 showText = (>> renderPS " show") . stringPS
@@ -142,16 +178,30 @@ matrixPS :: Show a => [a] -> String
 matrixPS vs = unwords ("[" : map show vs ++ ["]"])
 
 save :: Render ()
-save = renderPS "save"
+save = do
+    renderPS "save"
+    modify $ \rs@(RS{..}) -> rs { _saved = _drawState : _saved }
 
 restore :: Render ()
-restore = renderPS "restore"
+restore = do
+    renderPS "restore"
+    modify go
+  where
+    go rs@(RS{_saved = d:ds}) = rs { _drawState = d, _saved = ds }
+    go rs = rs
 
 gsave :: Render ()
-gsave = renderPS "gsave"
+gsave = do
+    renderPS "gsave"
+    modify $ \rs@(RS{..}) -> rs { _saved = _drawState : _saved }
 
 grestore :: Render ()
-grestore = renderPS "grestore"
+grestore = do
+    renderPS "grestore"
+    modify go
+  where
+    go rs@(RS{_saved = d:ds}) = rs { _drawState = d, _saved = ds }
+    go rs = rs
 
 saveMatrix :: Render ()
 saveMatrix = renderPS "matrix currentmatrix"
@@ -178,15 +228,24 @@ lineCap lc = mkPSCall "setlinecap" [fromLineCap lc]
 lineJoin :: LineJoin -> Render ()
 lineJoin lj = mkPSCall "setlinejoin" [fromLineJoin lj]
 
-fromLineCap :: LineCap -> String
-fromLineCap LineCapRound  = "1"
-fromLineCap LineCapSquare = "2"
-fromLineCap _             = "0"
+setDash :: [Double] -> Double -> Render ()
+setDash as offset = mkPSCall' "setdash" [showArray as, show offset]
 
-fromLineJoin :: LineJoin -> String
-fromLineJoin LineJoinRound = "1"
-fromLineJoin LineJoinBevel = "2"
-fromLineJoin _             = "0"
+setFillRule :: FillRule -> Render ()
+setFillRule r = modify (\rs@(RS ds _) -> rs { _drawState = ds { _fillRule = r } })
+
+showArray :: Show a => [a] -> String
+showArray as = concat ["[", concat $ intersperse " " (map show as), "]"]
+
+fromLineCap :: LineCap -> Int
+fromLineCap LineCapRound  = 1
+fromLineCap LineCapSquare = 2
+fromLineCap _             = 0
+
+fromLineJoin :: LineJoin -> Int
+fromLineJoin LineJoinRound = 1
+fromLineJoin LineJoinBevel = 2
+fromLineJoin _             = 0
 
 translate :: Double -> Double -> Render ()
 translate x y = mkPSCall "translate" [x,y]
@@ -198,7 +257,7 @@ rotate :: Double -> Render ()
 rotate t = mkPSCall "rotate" [t]
 
 stringPS :: String -> Render ()
-stringPS ss = tell (fromList ("(" : map escape ss)) >> tell (fromList [")"])
+stringPS ss = Render $ lift (tell (fromList ("(" : map escape ss)) >> tell (fromList [")"]))
   where escape '\n' = "\\n"
         escape '\r' = "\\r"
         escape '\t' = "\\t"
