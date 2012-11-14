@@ -123,20 +123,20 @@ postscriptMiscStyle :: Style v -> C.Render ()
 postscriptMiscStyle s =
   sequence_
   . catMaybes $ [ handle clip
-                , handleFontFace
+                , handle fFace
+                , handle fSlant
+                , handle fWeight
+                , handle fSize
                 , handle fColor
                 , handle lFillRule
                 ]
   where handle :: AttributeClass a => (a -> C.Render ()) -> Maybe (C.Render ())
         handle f = f `fmap` getAttr s
         clip     = mapM_ (\p -> renderC p >> C.clip) . getClip
-        fSize    = fromMaybe 12 $ getFontSize <$> getAttr s
-        fFace    = fromMaybe "" $ getFont <$> getAttr s
-        fSlant   = fromFontSlant  . fromMaybe FontSlantNormal
-                 $ getFontSlant  <$> getAttr s
-        fWeight  = fromFontWeight . fromMaybe FontWeightNormal
-                 $ getFontWeight <$> getAttr s
-        handleFontFace = Just $ C.selectFontFace fFace fSlant fWeight fSize
+        fSize    = C.setFontSize <$> getFontSize
+        fFace    = C.setFontFace <$> getFont
+        fSlant   = C.setFontSlant . fromFontSlant <$> getFontSlant
+        fWeight  = C.setFontWeight . fromFontWeight <$> getFontWeight
         fColor c = C.fillColor (getFillColor c)
         lFillRule = C.setFillRule . getFillRule
 
@@ -192,8 +192,10 @@ instance Renderable (Path R2) Postscript where
             renderC tr
 
 instance Renderable Text Postscript where
-  render _ (Text tr _ str) = C $ do
+  render _ (Text tr al str) = C $ do
       C.save
       postscriptTransf tr
-      C.showTextCentered str
+      case al of
+        BoxAlignedText xt yt -> C.showTextAlign xt yt str
+        BaselineText         -> C.moveTo 0 0 >> C.showText str
       C.restore

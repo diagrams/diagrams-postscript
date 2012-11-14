@@ -36,11 +36,16 @@ module Graphics.Rendering.Postscript
   , setFillRule
   , showText
   , showTextCentered
+  , showTextAlign
+  , showTextInBox
   , clip
   
   , FontSlant(..)
   , FontWeight(..)
-  , selectFontFace
+  , setFontFace
+  , setFontSlant
+  , setFontWeight
+  , setFontSize
   ) where
 
 import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..))
@@ -57,10 +62,11 @@ import System.IO (openFile, hPutStr, IOMode(..), hClose)
 
 data DrawState = DS
                  { _fillRule :: FillRule
+                 , _font     :: PostscriptFont
                  } deriving (Eq)
                  
 emptyDS :: DrawState
-emptyDS = DS Winding
+emptyDS = DS Winding defaultFont
 
 data RenderState = RS
                    { _drawState :: DrawState
@@ -164,10 +170,30 @@ fillPreserve = do
     grestore
 
 showText :: String -> Render ()
-showText = (>> renderPS " show") . stringPS
+showText s = do
+    renderFont
+    stringPS s
+    renderPS " show"
 
-showTextCentered :: String -> Render()
-showTextCentered = (>> renderPS " showcentered") . stringPS
+showTextCentered :: String -> Render ()
+showTextCentered s = do
+    renderFont
+    stringPS s
+    renderPS " showcentered"
+
+showTextInBox :: (Double,Double) -> (Double,Double) -> String -> Render ()
+showTextInBox (a,b) (c,d) s = do
+    renderFont
+    renderPS . unwords . map show $ [a,b,c,d]
+    stringPS s
+    renderPS " showinbox"
+
+showTextAlign :: Double -> Double -> String -> Render ()
+showTextAlign xt yt s = do
+    renderFont
+    renderPS . unwords . map show $ [xt, yt]
+    stringPS s
+    renderPS " showalign"
 
 transform :: Double -> Double -> Double -> Double -> Double -> Double -> Render ()
 transform ax ay bx by tx ty = when (vs /= [1.0,0.0,0.0,1.0,0.0,0.0]) $
@@ -280,6 +306,18 @@ epsHeader w h pages = concat
           , "/s { 0.0 currentlinewidth ne { stroke } if } bind def\n"
           , "/nvhalf { 2 div neg exch 2 div neg exch } bind def\n"
           , "/showcentered { dup stringwidth nvhalf moveto show } bind def\n"
+          , "/stringbbox { 0 0 moveto true charpath flattenpath pathbbox } bind def\n"
+          , "/wh { 1 index 4 index sub 1 index 4 index sub } bind def\n"
+          , "/showinbox { gsave dup stringbbox wh 11 7 roll mark 11 1 roll "
+          , "wh dup 7 index div 2 index 9 index div 1 index 1 index lt "
+          , "{ pop dup 9 index mul neg 3 index add 2 div 7 index add "
+          , " 6 index 13 index abs add } "
+          , "{ exch pop 6 index 12 index abs 2 index mul 7 index add } "
+          , "ifelse 17 3 roll cleartomark 4 1 roll translate dup scale "
+          , "0 0 moveto show grestore } bind def\n"
+          , "/showalign { dup mark exch stringbbox wh 10 -1 roll exch 10 1 roll mul "
+          , "neg 9 -2 roll mul 4 index add neg 8 2 roll cleartomark 3 1 roll moveto "
+          , "show } bind def\n"
           , "%%EndResource\n"
           , "%%EndProlog\n"
           , "%%BeginSetup\n"
@@ -294,6 +332,13 @@ epsFooter page = concat
 
 ---------------------------
 -- Font
+data PostscriptFont = PostscriptFont
+    { _face   :: String
+    , _slant  :: FontSlant
+    , _weight :: FontWeight
+    , _size   :: Double
+    } deriving (Eq, Show)
+
 data FontSlant = FontSlantNormal
                | FontSlantItalic
                | FontSlantOblique
@@ -303,12 +348,39 @@ data FontSlant = FontSlantNormal
 data FontWeight = FontWeightNormal
                 | FontWeightBold
             deriving (Show, Eq)
-            
-selectFontFace :: String -> FontSlant -> FontWeight -> Double -> Render ()
-selectFontFace [] _ _ _ = renderPS "/Times-Roman 14 selectfont"
-selectFontFace n i b s =
-    renderPS $ concat ["/", font, " ", show s, " selectfont"]
+
+defaultFont :: PostscriptFont
+defaultFont = PostscriptFont "Helvetica" FontSlantNormal FontWeightNormal 1
+
+renderFont :: Render ()
+renderFont = do
+    (RS (DS _ (PostscriptFont {..})) _) <- get
+    renderPS $ concat ["/", fontFromName _face _slant _weight, " ", show _size, " selectfont"]
+
+fontFromName :: String -> FontSlant -> FontWeight -> String
+fontFromName n s w = font ++ bold w ++ italic s
   where
     font = map f n
     f ' ' = '-'
     f c   = c
+
+    bold FontWeightNormal = ""
+    bold FontWeightBold   = "Bold"
+
+    italic FontSlantNormal = ""
+    italic FontSlantItalic = "Italic"
+    italic FontSlantOblique = "Oblique"
+    italic _                = ""
+
+setFontFace :: String -> Render ()
+setFontFace n = modify (\rs@(RS ds@(DS {..})  _) -> rs { _drawState = ds { _font = _font { _face = n } } })
+
+setFontSlant :: FontSlant -> Render ()
+setFontSlant s = modify (\rs@(RS ds@(DS {..})  _) -> rs { _drawState = ds { _font = _font { _slant = s } } })
+
+setFontWeight :: FontWeight -> Render ()
+setFontWeight w = modify (\rs@(RS ds@(DS {..})  _) -> rs { _drawState = ds { _font = _font { _weight = w } } })
+
+setFontSize :: Double -> Render ()
+setFontSize s = modify (\rs@(RS ds@(DS {..})  _) -> rs { _drawState = ds { _font = _font { _size = s } } })
+

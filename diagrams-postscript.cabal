@@ -23,9 +23,6 @@ Library
   Hs-source-dirs:      src
   Build-depends:       base >= 4.3 && < 4.7,
                        mtl >= 2.0 && < 3.0,
-                       process >= 1.0 && < 1.2,
-                       directory >= 1.0 && < 1.2,
-                       old-time >= 1.0 && < 1.2,
                        dlist >= 0.5 && < 0.6,
                        vector-space >= 0.7 && < 0.9,
                        diagrams-core >= 0.5 && < 0.7,
@@ -34,6 +31,4 @@ Library
                        split >= 0.1.2 && < 0.3,
                        monoid-extras >= 0.2 && < 0.3,
                        semigroups >= 0.3.4 && < 0.9
-  if !os(windows)
-    cpp-options: -DCMDLINELOOP
-    Build-depends:     unix >= 2.4 && < 2.6
+
