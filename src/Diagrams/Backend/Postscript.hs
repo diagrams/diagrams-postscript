@@ -7,16 +7,55 @@
            , ViewPatterns
            , NoMonomorphismRestriction
   #-}
-{-|
-  The EPS backend.
--}
+
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Diagrams.Backend.Postscript
+-- Copyright   :  (c) 2013 Diagrams team (see LICENSE)
+-- License     :  BSD-style (see LICENSE)
+-- Maintainer  :  diagrams-discuss@googlegroups.com
+--
+-- A Postscript rendering backend for diagrams.
+--
+-- To build diagrams for Postscript rendering use the @Postscript@
+-- type in the diagram type construction
+--
+-- > d :: Diagram Postscript R2
+-- > d = ...
+--
+-- and render giving the @Postscript@ token
+--
+-- > renderDia Postscript (PostscriptOptions "file.eps" (Width 400) EPS) d
+--
+-- This IO action will write the specified file.
+--
+-----------------------------------------------------------------------------
 module Diagrams.Backend.Postscript
 
-  ( Postscript(..) -- rendering token
+  ( -- * Backend token
+    Postscript(..)
 
-  , Options(..) -- for rendering options specific to Postscript
-  , OutputFormat(..) -- output format options
+    -- * Postscript-specific options
+    -- $PostscriptOptions
+
+  , Options(..)
+
+    -- * Postscript-supported output formats
+  , OutputFormat(..)
   ) where
+
+-- $PostscriptOptions
+--
+-- Unfortunately, Haddock does not yet support documentation for
+-- associated data families, so we must just provide it manually.
+-- This module defines
+--
+-- > data family Options Postscript R2 = PostscriptOptions
+-- >           { psfileName     :: String       -- ^ the name of the file you want generated
+-- >           , psSizeSpec     :: SizeSpec2D   -- ^ the requested size of the output
+-- >           , psOutputFormat :: OutputFormat -- ^ the output format and associated options
+-- >           }
+--
 
 import qualified Graphics.Rendering.Postscript as C
 
@@ -46,10 +85,11 @@ import Data.Typeable
 
 -- | This data declaration is simply used as a token to distinguish this rendering engine.
 data Postscript = Postscript
-    deriving Typeable
+    deriving (Eq,Ord,Read,Show,Typeable)
 
--- | Postscript could output to several file formats, which each have their own associated properties that affect the output.
-data OutputFormat = EPS
+-- | Postscript only supports EPS style output at the moment.  Future formats would each
+--   have their own associated properties that affect the output.
+data OutputFormat = EPS -- ^ Encapsulated Postscript output.
 
 instance Monoid (Render Postscript R2) where
   mempty  = C $ return ()
@@ -60,9 +100,9 @@ instance Backend Postscript R2 where
   data Render  Postscript R2 = C (C.Render ())
   type Result  Postscript R2 = IO ()
   data Options Postscript R2 = PostscriptOptions
-          { fileName     :: String       -- ^ the name of the file you want generated
-          , psSize       :: SizeSpec2D   -- ^ the requested size
-          , outputFormat :: OutputFormat -- ^ the output format and associated options
+          { psfileName     :: String       -- ^ the name of the file you want generated
+          , psSizeSpec     :: SizeSpec2D   -- ^ the requested size of the output
+          , psOutputFormat :: OutputFormat -- ^ the output format and associated options
           }
 
   withStyle _ s t (C r) = C $ do
@@ -85,8 +125,8 @@ instance Backend Postscript R2 where
     in  case out of
           EPS -> C.withEPSSurface file (round w) (round h) surfaceF
 
-  adjustDia c opts d = adjustDia2D psSize setPsSize c opts d
-    where setPsSize sz o = o { psSize = sz }
+  adjustDia c opts d = adjustDia2D psSizeSpec setPsSize c opts d
+    where setPsSize sz o = o { psSizeSpec = sz }
     
 sizeFromSpec size = case size of
    Width w'   -> (w',w')
@@ -94,12 +134,12 @@ sizeFromSpec size = case size of
    Dims w' h' -> (w',h')
    Absolute   -> (100,100)
 
-mkMax (a,b) = (Max a, Max b)
-fromMaxPair (Max a, Max b) = (a,b)
-
 instance MultiBackend Postscript R2 where
    renderDias b opts ds = doRenderPages b (combineSizes (map fst rs)) (map snd rs) >> return ()
      where
+       mkMax (a,b) = (Max a, Max b)
+       fromMaxPair (Max a, Max b) = (a,b)
+
        rs = map mkRender ds
        mkRender d = (opts', mconcat . map renderOne . prims $ d')
          where
@@ -107,8 +147,8 @@ instance MultiBackend Postscript R2 where
            renderOne (p, (M t,      s)) = withStyle b s mempty (render b (transform t p))
            renderOne (p, (t1 :| t2, s)) = withStyle b s t1 (render b (transform (t1 <> t2) p))
 
-       combineSizes (o:os) = o { psSize = uncurry Dims . fromMaxPair . sconcat $ f o N.:| fmap f os }
-         where f = mkMax . sizeFromSpec . psSize
+       combineSizes (o:os) = o { psSizeSpec = uncurry Dims . fromMaxPair . sconcat $ f o N.:| fmap f os }
+         where f = mkMax . sizeFromSpec . psSizeSpec
       
        doRenderPages _ (PostscriptOptions file size out) rs =
         let surfaceF surface = C.renderPagesWith surface (map (\(C r) -> r) rs)
@@ -119,6 +159,8 @@ instance MultiBackend Postscript R2 where
 renderC :: (Renderable a Postscript, V a ~ R2) => a -> C.Render ()
 renderC a = case render Postscript a of C r -> r
 
+-- | Handle \"miscellaneous\" style attributes (clip, font stuff, fill
+--   color and fill rule).
 postscriptMiscStyle :: Style v -> C.Render ()
 postscriptMiscStyle s =
   sequence_
