@@ -16,13 +16,13 @@ License:             BSD3
 License-file:        LICENSE
 Author:              Ryan Yates
 Maintainer:          diagrams-discuss@googlegroups.com
-Bug-reports:         http://github.com/fryguybob/diagrams-postscript/issues
+Bug-reports:         http://github.com/diagrams/diagrams-postscript/issues
 Category:            Graphics
 Build-type:          Simple
 Cabal-version:       >=1.10
 Source-repository head
   type:     git
-  location: http://github.com/fryguybob/diagrams-postscript
+  location: https://github.com/diagrams/diagrams-postscript.git
 
 Library
   Exposed-modules:     Diagrams.Backend.Postscript
