@@ -15,12 +15,15 @@
 -- * 'multiMain' is like 'defaultMain' but allows for a list of
 --   diagrams from which the user can choose one to render.
 --
+-- * 'pagesMain' is like 'defaultMain' but renders a list of
+--   diagrams as pages in a single file.
+--
 -- If you want to generate diagrams programmatically---/i.e./ if you
 -- want to do anything more complex than what the below functions
 -- provide---you have several options.
 --
 -- * A simple but somewhat inflexible approach is to wrap up
---   'defaultMain' (or 'multiMain', or 'animMain') in a call to
+--   'defaultMain' (or 'multiMain', or 'pagesMain') in a call to
 --   'System.Environment.withArgs'.
 --
 -- * A more flexible approach is to directly call 'renderDia'; see
