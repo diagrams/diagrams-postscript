@@ -44,18 +44,6 @@ module Diagrams.Backend.Postscript
   , OutputFormat(..)
   ) where
 
--- $PostscriptOptions
---
--- Unfortunately, Haddock does not yet support documentation for
--- associated data families, so we must just provide it manually.
--- This module defines
---
--- > data family Options Postscript R2 = PostscriptOptions
--- >           { psfileName     :: String       -- ^ the name of the file you want generated
--- >           , psSizeSpec     :: SizeSpec2D   -- ^ the requested size of the output
--- >           , psOutputFormat :: OutputFormat -- ^ the output format and associated options
--- >           }
---
 
 import qualified Graphics.Rendering.Postscript as C
 
@@ -241,3 +229,15 @@ instance Renderable Text Postscript where
         BoxAlignedText xt yt -> C.showTextAlign xt yt str
         BaselineText         -> C.moveTo 0 0 >> C.showText str
       C.restore
+
+-- $PostscriptOptions
+--
+-- Unfortunately, Haddock does not yet support documentation for
+-- associated data families, so we must just provide it manually.
+-- This module defines
+--
+-- > data family Options Postscript R2 = PostscriptOptions
+-- >           { psfileName     :: String       -- ^ the name of the file you want generated
+-- >           , psSizeSpec     :: SizeSpec2D   -- ^ the requested size of the output
+-- >           , psOutputFormat :: OutputFormat -- ^ the output format and associated options
+-- >           }

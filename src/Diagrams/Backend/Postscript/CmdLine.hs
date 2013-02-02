@@ -195,6 +195,7 @@ showDiaList ds = do
 --   in the Postscript file.
 --
 --   Example usage:
+--
 -- @
 -- $ ghc --make MultiPage
 -- [1 of 1] Compiling Main             ( MultiPage.hs, MultiPage.o )
