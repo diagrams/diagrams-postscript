@@ -8,10 +8,10 @@ using the [Haskell programming language][haskell].
 [haskell]: http://www.haskell.org/haskellwiki/Haskell
 
 _diagrams-postscript_ has a simple rendering engine that outputs
-[postscript] files and is an officially supported backend
+[PostScript™ language][postscript] files and is an officially supported backend
 for diagrams.
 
-[postscript]: http://www.adobe.com/products/postscript/pdfs/PLRM.pdf (PostScript™ language)
+[postscript]: http://www.adobe.com/products/postscript/pdfs/PLRM.pdf
 
 # Installation
 
@@ -70,3 +70,7 @@ The command above generates an EPS file with a width of 400pt.
 Instead of just creating a standalone executable, the postscript backend
 can also be called from within a larger program.  For more
 information, see the Diagram.Backend.Postscript module.
+
+--
+
+PostScript™ is a trademark of Adobe.
