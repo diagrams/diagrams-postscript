@@ -56,11 +56,14 @@ import Diagrams.TwoD.Shapes
 import Diagrams.TwoD.Adjust (adjustDia2D)
 import Diagrams.TwoD.Size (requiredScaleT)
 import Diagrams.TwoD.Text
+import Diagrams.TwoD.Image
 import Diagrams.TwoD.Path (Clip(..), getFillRule)
 
 import Control.Applicative ((<$>))
+import Control.Monad.State
 import Control.Monad (when)
 import Data.Maybe (catMaybes, fromMaybe)
+import Data.List (isSuffixOf)
 
 import Data.VectorSpace
 
@@ -220,6 +223,26 @@ instance Renderable (Path R2) Postscript where
     where renderTrail (p, tr) = do
             uncurry C.moveTo (unp2 p)
             renderC tr
+
+instance Renderable Image Postscript where
+  render _ (Image file sz tr) = C $ do
+    if ".eps" `isSuffixOf` file || ".ps" `isSuffixOf` file
+      then do
+        C.save
+        postscriptTransf (tr <> translation (r2 (-w/2,-h/2)))
+        C.showImage file
+        C.restore
+      else return ()
+--        liftIO . putStr . unlines $
+--          [ "Warning: Postscript backend can currently only render embedded"
+--          , "  images in .eps or .ps format.  Ignoring <" ++ file ++ ">."
+--          ]  
+   where
+     (w,h) = case sz of
+               Width d  -> (d,0)
+               Height d -> (0,d)
+               Dims x y -> (x,y)
+               Absolute -> (0,0)
 
 instance Renderable Text Postscript where
   render _ (Text tr al str) = C $ do

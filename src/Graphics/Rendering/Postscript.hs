@@ -54,6 +54,7 @@ module Graphics.Rendering.Postscript
   , lineJoin
   , setDash
   , setFillRule
+  , showImage
   , showText
   , showTextCentered
   , showTextAlign
@@ -223,6 +224,12 @@ fillPreserve = do
     gsave
     fill
     grestore
+
+-- | Draw an image from a file reference.
+showImage :: String -> Render ()
+showImage f = do
+    stringPS f
+    renderPS " run"
 
 -- | Draw a string at the current point.
 showText :: String -> Render ()
