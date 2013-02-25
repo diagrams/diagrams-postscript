@@ -131,7 +131,7 @@ diagramOpts prog sel = DiagramOpts
 -- @
 -- $ ghc --make MyDiagram
 --
---   # output image.png with a width of 400pt (and auto-determined height)
+--   # output image.eps with a width of 400pt (and auto-determined height)
 -- $ ./MyDiagram -o image.eps -w 400
 -- @
 
@@ -228,8 +228,8 @@ pagesMain ds = do
 -- a command-line program which will crudely \"render\" the animation
 -- by rendering one image for each frame, named by extending the given
 -- output file name by consecutive integers.  For example if the given
--- output file name is @foo\/blah.png@, the frames will be saved in
--- @foo\/blah001.png@, @foo\/blah002.png@, and so on (the number of
+-- output file name is @foo\/blah.eps@, the frames will be saved in
+-- @foo\/blah001.eps@, @foo\/blah002.eps@, and so on (the number of
 -- padding digits used depends on the total number of frames).  It is
 -- up to the user to take these images and stitch them together into
 -- an actual animation format (using, /e.g./ @ffmpeg@).
