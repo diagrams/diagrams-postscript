@@ -35,6 +35,7 @@ module Diagrams.Backend.Postscript.CmdLine
        ( defaultMain
        , multiMain
        , pagesMain
+       , animMain
        , Postscript
        ) where
 
@@ -46,12 +47,16 @@ import System.Console.CmdArgs.Implicit hiding (args)
 import Prelude
 
 import Data.Maybe          (fromMaybe)
+import Control.Monad       (forM_)
 import Control.Applicative ((<$>))
 import Control.Monad       (when)
 import Data.List.Split
 import Data.List           (intercalate)
 
+import Text.Printf
+
 import System.Environment  (getArgs, getProgName)
+import System.FilePath     (addExtension, splitExtension)
 
 data DiagramOpts = DiagramOpts
                    { width     :: Maybe Int
@@ -59,6 +64,7 @@ data DiagramOpts = DiagramOpts
                    , output    :: FilePath
                    , selection :: Maybe String
                    , list      :: Bool
+                   , fpu       :: Double
                    }
   deriving (Show, Data, Typeable)
 
@@ -82,6 +88,10 @@ diagramOpts prog sel = DiagramOpts
 
   , list = def
          &= (if sel then help "List all available diagrams" else ignore)
+
+  , fpu = 30
+          &= typ "FLOAT"
+          &= help "Frames per unit time (for animations)"
   }
   &= summary "Command-line diagram generation."
   &= program prog
@@ -111,6 +121,7 @@ diagramOpts prog sel = DiagramOpts
 --   -w --width=INT         Desired width of the output image
 --   -h --height=INT        Desired height of the output image
 --   -o --output=FILE       Output file
+--   -f --fpu=FLOAT         Frames per unit time (for animations)
 --   -? --help              Display help message
 --   -V --version           Print version information
 -- @
@@ -212,3 +223,36 @@ pagesMain ds = do
   opts <- cmdArgs (diagramOpts prog False)
   chooseRender opts (renderDias' ds)
 
+-- | @animMain@ is like 'defaultMain', but renders an animation
+-- instead of a diagram.  It takes as input an animation and produces
+-- a command-line program which will crudely \"render\" the animation
+-- by rendering one image for each frame, named by extending the given
+-- output file name by consecutive integers.  For example if the given
+-- output file name is @foo\/blah.png@, the frames will be saved in
+-- @foo\/blah001.png@, @foo\/blah002.png@, and so on (the number of
+-- padding digits used depends on the total number of frames).  It is
+-- up to the user to take these images and stitch them together into
+-- an actual animation format (using, /e.g./ @ffmpeg@).
+--
+--   Of course, this is a rather crude method of rendering animations;
+--   more sophisticated methods will likely be added in the future.
+--
+-- The @--fpu@ option can be used to control how many frames will be
+-- output for each second (unit time) of animation.
+animMain :: Animation Postscript R2 -> IO ()
+animMain anim = do
+  prog <- getProgName
+  opts <- cmdArgs (diagramOpts prog False)
+  let frames  = simulate (toRational $ fpu opts) anim
+      nDigits = length . show . length $ frames
+  forM_ (zip [1..] frames) $ \(i,d) ->
+    chooseRender (indexize nDigits i opts) (renderDia' d)
+
+-- | @indexize d n@ adds the integer index @n@ to the end of the
+--   output file name, padding with zeros if necessary so that it uses
+--   at least @d@ digits.
+indexize :: Int -> Integer -> DiagramOpts -> DiagramOpts
+indexize nDigits i opts = opts { output = output' }
+  where fmt         = "%0" ++ show nDigits ++ "d"
+        output'     = addExtension (base ++ printf fmt (i::Integer)) ext
+        (base, ext) = splitExtension (output opts)
