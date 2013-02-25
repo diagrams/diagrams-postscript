@@ -54,7 +54,7 @@ module Graphics.Rendering.Postscript
   , lineJoin
   , setDash
   , setFillRule
-  , showImage
+  , runImage
   , showText
   , showTextCentered
   , showTextAlign
@@ -105,11 +105,11 @@ emptyRS = RS emptyDS []
 
 -- | Type for a monad that writes Postscript using the commands we will define later.
 newtype PSWriter m = PSWriter { runPSWriter :: WriterT (DList String) IO m }
-  deriving (Functor, Monad, MonadWriter (DList String))
+  deriving (Functor, Monad, MonadWriter (DList String), MonadIO)
 
 -- | Type of the monad that tracks the state from side-effecting commands.
 newtype Render m = Render { runRender :: StateT RenderState PSWriter m }
-  deriving (Functor, Monad, MonadState RenderState)
+  deriving (Functor, Monad, MonadState RenderState, MonadIO)
 
 -- | Abstraction of the drawing surface details.
 data Surface = Surface { header :: Int -> String, footer :: Int -> String, width :: Int, height :: Int, fileName :: String } 
@@ -225,9 +225,9 @@ fillPreserve = do
     fill
     grestore
 
--- | Draw an image from a file reference.
-showImage :: String -> Render ()
-showImage f = do
+-- | Run an external file rendering an image from a file reference.
+runImage :: String -> Render ()
+runImage f = do
     stringPS f
     renderPS " run"
 

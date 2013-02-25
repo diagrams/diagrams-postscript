@@ -230,13 +230,13 @@ instance Renderable Image Postscript where
       then do
         C.save
         postscriptTransf (tr <> translation (r2 (-w/2,-h/2)))
-        C.showImage file
+        C.runImage file
         C.restore
-      else return ()
---        liftIO . putStr . unlines $
---          [ "Warning: Postscript backend can currently only render embedded"
---          , "  images in .eps or .ps format.  Ignoring <" ++ file ++ ">."
---          ]  
+      else
+        liftIO . putStr . unlines $
+          [ "Warning: Postscript backend can currently only render embedded"
+          , "  images in .eps or .ps format.  Ignoring <" ++ file ++ ">."
+          ]  
    where
      (w,h) = case sz of
                Width d  -> (d,0)
