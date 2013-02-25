@@ -62,6 +62,7 @@ import Diagrams.TwoD.Path (Clip(..), getFillRule)
 import Control.Applicative ((<$>))
 import Control.Monad.State
 import Control.Monad (when)
+import Control.Exception (try)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.List (isSuffixOf)
 
@@ -229,20 +230,28 @@ instance Renderable Image Postscript where
     if ".eps" `isSuffixOf` file || ".ps" `isSuffixOf` file
       then do
         C.save
-        postscriptTransf (tr <> translation (r2 (-w/2,-h/2)))
-        C.runImage file
+        f <- liftIO (try $ readFile file :: IO (Either IOError String))
+        case f of
+          Right s -> do
+             case C.parseBoundingBox s of
+               Right (llx,lly,urx,ury) -> do
+                  let w = urx - llx; h = ury - lly
+                  postscriptTransf (tr <> requiredScaleT sz (w,h) <> translation (r2 (llx - w/2,lly - h/2)))
+                  C.epsImage s
+               Left s -> 
+                   liftIO . putStr . unlines $ 
+                     [ "Warning: failed to parse file <" ++ file ++ ">"
+                     , "    " ++ s
+                     ]
+          Left _ -> do
+            liftIO . putStrLn $
+              "Warning: can't read image file <" ++ file ++ ">"
         C.restore
       else
         liftIO . putStr . unlines $
           [ "Warning: Postscript backend can currently only render embedded"
           , "  images in .eps or .ps format.  Ignoring <" ++ file ++ ">."
           ]  
-   where
-     (w,h) = case sz of
-               Width d  -> (d,0)
-               Height d -> (0,d)
-               Dims x y -> (x,y)
-               Absolute -> (0,0)
 
 instance Renderable Text Postscript where
   render _ (Text tr al str) = C $ do

@@ -55,6 +55,8 @@ module Graphics.Rendering.Postscript
   , setDash
   , setFillRule
   , runImage
+  , epsImage
+  , parseBoundingBox
   , showText
   , showTextCentered
   , showTextAlign
@@ -77,6 +79,9 @@ import Control.Monad(when)
 import Data.List(intersperse)
 import Data.DList(DList,toList,fromList)
 import Data.Word(Word8)
+import Data.Maybe
+import Data.List
+import Data.List.Split
 import Data.Char(ord,isPrint)
 import Numeric(showIntAtBase)
 import System.IO (openFile, hPutStr, IOMode(..), hClose)
@@ -230,6 +235,28 @@ runImage :: String -> Render ()
 runImage f = do
     stringPS f
     renderPS " run"
+
+-- | Embed an EPS file.
+epsImage :: String -> Render ()
+epsImage f = do
+    renderPS "beginEPS"
+    renderPS f
+    renderPS "endEPS"
+
+-- | Parse some EPS to find the bounding box comment.
+parseBoundingBox :: Num n => String -> Either String (n,n,n,n)
+parseBoundingBox f = 
+    case filter ("%%BoundingBox:" `isPrefixOf`) $ lines f of
+      (l:_) -> case map fromIntegral . catMaybes . map (readMaybe :: String -> Maybe Int) . splitOn " " . drop 14 $ l of
+                  (a:b:c:d:_) -> Right (a,b,c,d)
+                  _           -> Left "Failed to parse '%%BoundingBox:' line."
+      _     -> Left "Failed to find '%%BoundingBox:'."
+
+readMaybe :: (Read a) => String -> Maybe a
+readMaybe s = 
+  case reads s of
+    [(x, "")] -> Just x
+    _ -> Nothing
 
 -- | Draw a string at the current point.
 showText :: String -> Render ()
@@ -404,6 +431,9 @@ epsHeader w h pages = concat
           , "/showalign { dup mark exch stringbbox wh 10 -1 roll exch 10 1 roll mul "
           , "neg 9 -2 roll mul 4 index add neg 8 2 roll cleartomark 3 1 roll moveto "
           , "show } bind def\n"
+          , "/beginEPS { save /showpage {} def 0 setgray 0 setlinecap 1 setlinewidth "
+          , "0 setlinejoin 10 setmiterlimit [ ] 0 setdash newpath } bind def\n"
+          , "/endEPS { restore } bind def\n"
           , "%%EndResource\n"
           , "%%EndProlog\n"
           , "%%BeginSetup\n"
