@@ -1,12 +1,11 @@
-{-# LANGUAGE TypeFamilies
-           , MultiParamTypeClasses
-           , FlexibleInstances
-           , FlexibleContexts
-           , TypeSynonymInstances
-           , DeriveDataTypeable
-           , ViewPatterns
-           , NoMonomorphismRestriction
-  #-}
+{-# LANGUAGE DeriveDataTypeable        #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE TypeSynonymInstances      #-}
+{-# LANGUAGE ViewPatterns              #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -47,29 +46,29 @@ module Diagrams.Backend.Postscript
 
 import qualified Graphics.Rendering.Postscript as C
 
-import Diagrams.Prelude
+import           Diagrams.Prelude
 
-import Diagrams.Core.Transform
+import           Diagrams.Core.Transform
 
-import Diagrams.TwoD.Ellipse
-import Diagrams.TwoD.Shapes
-import Diagrams.TwoD.Adjust (adjustDia2D)
-import Diagrams.TwoD.Size (requiredScaleT)
-import Diagrams.TwoD.Text
-import Diagrams.TwoD.Path (Clip(..), getFillRule)
+import           Diagrams.TwoD.Adjust          (adjustDia2D)
+import           Diagrams.TwoD.Ellipse
+import           Diagrams.TwoD.Path            (Clip (..), getFillRule)
+import           Diagrams.TwoD.Shapes
+import           Diagrams.TwoD.Size            (requiredScaleT)
+import           Diagrams.TwoD.Text
 
-import Control.Applicative ((<$>))
-import Control.Monad (when)
-import Data.Maybe (catMaybes, fromMaybe)
+import           Control.Applicative           ((<$>))
+import           Control.Monad                 (when)
+import           Data.Maybe                    (catMaybes, fromMaybe)
 
-import Data.VectorSpace
+import           Data.VectorSpace
 
-import Data.Monoid hiding ((<>))
-import Data.Monoid.MList
-import Data.Monoid.Split
-import qualified Data.List.NonEmpty as N
-import qualified Data.Foldable as F
-import Data.Typeable
+import qualified Data.Foldable                 as F
+import qualified Data.List.NonEmpty            as N
+import           Data.Monoid                   hiding ((<>))
+import           Data.Monoid.MList
+import           Data.Monoid.Split
+import           Data.Typeable
 
 -- | This data declaration is simply used as a token to distinguish this rendering engine.
 data Postscript = Postscript
@@ -115,7 +114,7 @@ instance Backend Postscript R2 where
 
   adjustDia c opts d = adjustDia2D psSizeSpec setPsSize c opts d
     where setPsSize sz o = o { psSizeSpec = sz }
-    
+
 sizeFromSpec size = case size of
    Width w'   -> (w',w')
    Height h'  -> (h',h')
@@ -137,7 +136,7 @@ instance MultiBackend Postscript R2 where
 
        combineSizes (o:os) = o { psSizeSpec = uncurry Dims . fromMaxPair . sconcat $ f o N.:| fmap f os }
          where f = mkMax . sizeFromSpec . psSizeSpec
-      
+
        doRenderPages _ (PostscriptOptions file size out) rs =
         let surfaceF surface = C.renderPagesWith surface (map (\(C r) -> r) rs)
             (w,h) = sizeFromSpec size
