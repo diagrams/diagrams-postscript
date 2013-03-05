@@ -77,6 +77,7 @@ data Postscript = Postscript
 -- | Postscript only supports EPS style output at the moment.  Future formats would each
 --   have their own associated properties that affect the output.
 data OutputFormat = EPS -- ^ Encapsulated Postscript output.
+  deriving (Eq, Ord, Read, Show, Enum, Bounded, Typeable)
 
 instance Monoid (Render Postscript R2) where
   mempty  = C $ return ()
@@ -91,6 +92,7 @@ instance Backend Postscript R2 where
           , psSizeSpec     :: SizeSpec2D   -- ^ the requested size of the output
           , psOutputFormat :: OutputFormat -- ^ the output format and associated options
           }
+    deriving Show
 
   withStyle _ s t (C r) = C $ do
     C.save
