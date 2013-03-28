@@ -89,7 +89,7 @@ instance Backend Postscript R2 where
   type Result  Postscript R2 = IO ()
   data Options Postscript R2 = PostscriptOptions
           { psfileName     :: String       -- ^ the name of the file you want generated
-          , psSizeSpec     :: SizeSpec2D   -- ^ the requested size of the output
+          , psSizeSpec     :: SizeSpec2D Double   -- ^ the requested size of the output
           , psOutputFormat :: OutputFormat -- ^ the output format and associated options
           }
     deriving Show
@@ -222,7 +222,7 @@ instance Renderable (Path R2) Postscript where
             uncurry C.moveTo (unp2 p)
             renderC tr
 
-instance Renderable Text Postscript where
+instance Renderable (Text Double) Postscript where
   render _ (Text tr al str) = C $ do
       C.save
       postscriptTransf tr
@@ -239,6 +239,6 @@ instance Renderable Text Postscript where
 --
 -- > data family Options Postscript R2 = PostscriptOptions
 -- >           { psfileName     :: String       -- ^ the name of the file you want generated
--- >           , psSizeSpec     :: SizeSpec2D   -- ^ the requested size of the output
+-- >           , psSizeSpec     :: SizeSpec2D Double  -- ^ the requested size of the output
 -- >           , psOutputFormat :: OutputFormat -- ^ the output format and associated options
 -- >           }
