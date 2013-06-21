@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable        #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE TypeFamilies              #-}
@@ -205,21 +206,25 @@ postscriptTransf t = C.transform a1 a2 b1 b2 c1 c2
         (b1,b2) = unr2 $ apply t unitY
         (c1,c2) = unr2 $ transl t
 
-instance Renderable (Segment R2) Postscript where
-  render _ (Linear (unr2 -> v)) = C $ uncurry C.relLineTo v
+instance Renderable (Segment Closed R2) Postscript where
+  render _ (Linear (OffsetClosed (unr2 -> v))) = C $ uncurry C.relLineTo v
   render _ (Cubic (unr2 -> (x1,y1))
                   (unr2 -> (x2,y2))
-                  (unr2 -> (x3,y3))) = C $ C.relCurveTo x1 y1 x2 y2 x3 y3
+                  (OffsetClosed (unr2 -> (x3,y3))))
+    = C $ C.relCurveTo x1 y1 x2 y2 x3 y3
 
 instance Renderable (Trail R2) Postscript where
-  render _ (Trail segs c) = C $ do
-    mapM_ renderC segs
-    when c C.closePath
+  render _ t = flip withLine t $ renderT . lineSegments
+    where
+      renderT segs =
+        C $ do
+          mapM_ renderC segs
+          when (isLoop t) C.closePath
 
 instance Renderable (Path R2) Postscript where
   render _ (Path trs) = C $ C.newPath >> F.mapM_ renderTrail trs
-    where renderTrail (p, tr) = do
-            uncurry C.moveTo (unp2 p)
+    where renderTrail (viewLoc -> (unp2 -> p, tr)) = do
+            uncurry C.moveTo p
             renderC tr
 
 instance Renderable Text Postscript where
