@@ -227,6 +227,34 @@ instance Renderable (Path R2) Postscript where
             uncurry C.moveTo p
             renderC tr
 
+instance Renderable Image Postscript where
+  render _ (Image file sz tr) = C $ do
+    if ".eps" `isSuffixOf` file || ".ps" `isSuffixOf` file
+      then do
+        C.save
+        f <- liftIO (try $ readFile file :: IO (Either IOError String))
+        case f of
+          Right s -> do
+             case C.parseBoundingBox s of
+               Right (llx,lly,urx,ury) -> do
+                  let w = urx - llx; h = ury - lly
+                  postscriptTransf (tr <> requiredScaleT sz (w,h) <> translation (r2 (llx - w/2,lly - h/2)))
+                  C.epsImage s
+               Left s -> 
+                   liftIO . putStr . unlines $ 
+                     [ "Warning: failed to parse file <" ++ file ++ ">"
+                     , "    " ++ s
+                     ]
+          Left _ -> do
+            liftIO . putStrLn $
+              "Warning: can't read image file <" ++ file ++ ">"
+        C.restore
+      else
+        liftIO . putStr . unlines $
+          [ "Warning: Postscript backend can currently only render embedded"
+          , "  images in .eps or .ps format.  Ignoring <" ++ file ++ ">."
+          ]  
+
 instance Renderable Text Postscript where
   render _ (Text tr al str) = C $ do
       C.save
