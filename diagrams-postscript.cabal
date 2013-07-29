@@ -1,5 +1,5 @@
 Name:                diagrams-postscript
-Version:             0.6.1
+Version:             0.7
 Synopsis:            Postscript backend for diagrams drawing EDSL
 Description:         This package provides a modular backend for rendering
                      diagrams created with the diagrams EDSL using Postscript.
@@ -34,8 +34,8 @@ Library
                        filepath,
                        dlist >= 0.5 && < 0.6,
                        vector-space >= 0.7.7 && < 0.9,
-                       diagrams-core >= 0.6 && < 0.7,
-                       diagrams-lib >= 0.6 && < 0.7,
+                       diagrams-core >= 0.7 && < 0.8,
+                       diagrams-lib >= 0.7 && < 0.8,
                        cmdargs >= 0.6 && < 0.11,
                        split >= 0.1.2 && < 0.3,
                        monoid-extras >= 0.3 && < 0.4,
