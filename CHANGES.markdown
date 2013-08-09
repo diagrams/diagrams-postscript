@@ -1,5 +1,5 @@
-0.7: XXX
---------
+0.7: 9 August 2013
+------------------
 
 First release as an officially supported diagrams backend.
 
