@@ -68,7 +68,7 @@ module Graphics.Rendering.Postscript
   , setFontSize
   ) where
 
-import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..),colorToRGBA)
+import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..),colorToSRGBA)
 import Diagrams.TwoD.Path hiding (stroke)
 import Control.Monad.Writer
 import Control.Monad.State
@@ -304,7 +304,7 @@ restoreMatrix = renderPS "setmatrix"
 
 colorPS :: Color c => c -> [Double]
 colorPS c = [ r, g, b ]
-  where (r,g,b,_) = colorToRGBA c
+  where (r,g,b,_) = colorToSRGBA c
 
 -- | Set the color of the stroke.
 strokeColor :: (Color c) => c -> Render ()
