@@ -66,6 +66,8 @@ module Graphics.Rendering.Postscript
   , setFontSlant
   , setFontWeight
   , setFontSize
+
+  , setIgnoreFill
   ) where
 
 import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..),colorToSRGBA)
@@ -84,13 +86,14 @@ import System.IO (openFile, hPutStr, IOMode(..), hClose)
 -- that we have emitted into the postscript file (at least
 -- ones that we do not protect in other ways).
 data DrawState = DS
-                 { _fillRule :: FillRule
-                 , _font     :: PostscriptFont
+                 { _fillRule   :: FillRule
+                 , _font       :: PostscriptFont
+                 , _ignoreFill :: Bool
                  } deriving (Eq)
 
 -- This reflects the defaults from the standard.
 emptyDS :: DrawState
-emptyDS = DS Winding defaultFont
+emptyDS = DS Winding defaultFont False
 
 data RenderState = RS
                    { _drawState :: DrawState   -- The current state.
@@ -213,16 +216,19 @@ stroke = renderPS "s"
 fill :: Render ()
 fill = do
     (RS (DS {..}) _) <- get
-    case _fillRule of
+    unless _ignoreFill $
+      case _fillRule of
         Winding -> renderPS "fill"
         EvenOdd -> renderPS "eofill"
 
 -- | Fill the current path without affecting the graphics state.
 fillPreserve :: Render ()
 fillPreserve = do
-    gsave
-    fill
-    grestore
+    (RS (DS {..}) _) <- get
+    unless _ignoreFill $ do
+        gsave
+        fill
+        grestore
 
 -- | Draw a string at the current point.
 showText :: String -> Render ()
@@ -433,7 +439,7 @@ defaultFont = PostscriptFont "Helvetica" FontSlantNormal FontWeightNormal 1
 
 renderFont :: Render ()
 renderFont = do
-    (RS (DS _ (PostscriptFont {..})) _) <- get
+    (RS (DS _ (PostscriptFont {..}) _) _) <- get
     renderPS $ concat ["/", fontFromName _face _slant _weight, " ", show _size, " selectfont"]
 
 -- This is a little hacky.  I'm not sure there are good options.
@@ -468,3 +474,5 @@ setFontWeight w = modify (\rs@(RS ds@(DS {..})  _) -> rs { _drawState = ds { _fo
 setFontSize :: Double -> Render ()
 setFontSize s = modify (\rs@(RS ds@(DS {..})  _) -> rs { _drawState = ds { _font = _font { _size = s } } })
 
+setIgnoreFill :: Bool -> Render ()
+setIgnoreFill v = modify (\rs@(RS ds@(DS {..})  _) -> rs { _drawState = ds { _ignoreFill = v } })

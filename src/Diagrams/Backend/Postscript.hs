@@ -221,6 +221,12 @@ instance Renderable (Trail R2) Postscript where
           mapM_ renderC segs
           when (isLoop t) C.closePath
 
+          -- We need to ignore the fill if we see a line.
+          -- Ignore fill is part of the drawing state, so
+          -- it will be cleared by the `restore` after this
+          -- primitive.  
+          when (isLine t) $ C.setIgnoreFill True 
+
 instance Renderable (Path R2) Postscript where
   render _ (Path trs) = C $ C.newPath >> F.mapM_ renderTrail trs
     where renderTrail (viewLoc -> (unp2 -> p, tr)) = do
