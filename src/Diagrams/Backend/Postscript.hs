@@ -187,6 +187,7 @@ postscriptStyle s = sequence_ -- foldr (>>) (return ())
                             , handle lColor
                             , handle lWidth
                             , handle lJoin
+                            , handle lMiter
                             , handle lCap
                             , handle lDashing
                             ]
@@ -197,6 +198,7 @@ postscriptStyle s = sequence_ -- foldr (>>) (return ())
         lWidth = C.lineWidth . getLineWidth
         lCap = C.lineCap . getLineCap
         lJoin = C.lineJoin . getLineJoin
+        lMiter = C.miterLimit . getLineMiterLimit
         lDashing (getDashing -> Dashing ds offs) =
           C.setDash ds offs
 

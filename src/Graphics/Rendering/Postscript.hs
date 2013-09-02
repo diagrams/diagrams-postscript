@@ -52,6 +52,7 @@ module Graphics.Rendering.Postscript
   , lineWidth
   , lineCap
   , lineJoin
+  , miterLimit
   , setDash
   , setFillRule
   , showText
@@ -331,6 +332,10 @@ lineCap lc = mkPSCall "setlinecap" [fromLineCap lc]
 -- | Set the line join method.
 lineJoin :: LineJoin -> Render ()
 lineJoin lj = mkPSCall "setlinejoin" [fromLineJoin lj]
+
+-- | Set the miter limit.
+miterLimit :: Double -> Render ()
+miterLimit ml = mkPSCall "setmiterlimit" [ml]
 
 -- | Set the dash style.
 setDash :: [Double] -- ^ Dash pattern (even indices are "on").
