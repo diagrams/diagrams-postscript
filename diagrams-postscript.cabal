@@ -40,6 +40,7 @@ Library
                        cmdargs >= 0.6 && < 0.11,
                        split >= 0.1.2 && < 0.3,
                        monoid-extras >= 0.3 && < 0.4,
-                       semigroups >= 0.3.4 && < 0.12
+                       semigroups >= 0.3.4 && < 0.12,
+                       lens >= 3.8 && < 4
   default-language:    Haskell2010
 

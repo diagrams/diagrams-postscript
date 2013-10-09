@@ -57,9 +57,11 @@ import           Diagrams.TwoD.Path            (Clip (..), getFillRule)
 import           Diagrams.TwoD.Shapes
 import           Diagrams.TwoD.Size            (requiredScaleT)
 import           Diagrams.TwoD.Text
+import           Diagrams.TwoD.Types
 
 import           Control.Applicative           ((<$>))
 import           Control.Monad                 (when)
+import           Control.Lens                  hiding (transform)
 import           Data.Maybe                    (catMaybes, fromMaybe)
 
 import           Data.VectorSpace
@@ -204,15 +206,15 @@ postscriptStyle s = sequence_ -- foldr (>>) (return ())
 
 postscriptTransf :: Transformation R2 -> C.Render ()
 postscriptTransf t = C.transform a1 a2 b1 b2 c1 c2
-  where (a1,a2) = unr2 $ apply t unitX
-        (b1,b2) = unr2 $ apply t unitY
-        (c1,c2) = unr2 $ transl t
+  where (R2 a1 a2) = apply t unitX
+        (R2 b1 b2) = apply t unitY
+        (R2 c1 c2) = transl t
 
 instance Renderable (Segment Closed R2) Postscript where
-  render _ (Linear (OffsetClosed (unr2 -> v))) = C $ uncurry C.relLineTo v
-  render _ (Cubic (unr2 -> (x1,y1))
-                  (unr2 -> (x2,y2))
-                  (OffsetClosed (unr2 -> (x3,y3))))
+  render _ (Linear (OffsetClosed (R2 x y))) = C $ C.relLineTo x y
+  render _ (Cubic (R2 x1 y1)
+                  (R2 x2 y2)
+                  (OffsetClosed (R2 x3 y3)))
     = C $ C.relCurveTo x1 y1 x2 y2 x3 y3
 
 instance Renderable (Trail R2) Postscript where
@@ -230,7 +232,7 @@ instance Renderable (Trail R2) Postscript where
           when (isLine t) $ C.setIgnoreFill True 
 
 instance Renderable (Path R2) Postscript where
-  render _ (Path trs) = C $ C.newPath >> F.mapM_ renderTrail trs
+  render _ p = C $ C.newPath >> F.mapM_ renderTrail (p^.pathTrails)
     where renderTrail (viewLoc -> (unp2 -> p, tr)) = do
             uncurry C.moveTo p
             renderC tr
