@@ -38,7 +38,7 @@ module Diagrams.Backend.Postscript
     -- * Postscript-specific options
     -- $PostscriptOptions
 
-  , Options(..)
+  , Options(..), psfileName, psSizeSpec, psOutputFormat
 
     -- * Postscript-supported output formats
   , OutputFormat(..)
@@ -47,13 +47,13 @@ module Diagrams.Backend.Postscript
 
 import qualified Graphics.Rendering.Postscript as C
 
-import           Diagrams.Prelude
+import           Diagrams.Prelude              hiding (view)
 
 import           Diagrams.Core.Transform
 
 import           Diagrams.TwoD.Adjust          (adjustDia2D)
 import           Diagrams.TwoD.Ellipse
-import           Diagrams.TwoD.Path            (Clip (..), getFillRule)
+import           Diagrams.TwoD.Path            (getClip, getFillRule)
 import           Diagrams.TwoD.Shapes
 import           Diagrams.TwoD.Size            (requiredScaleT)
 import           Diagrams.TwoD.Text
@@ -91,9 +91,9 @@ instance Backend Postscript R2 where
   data Render  Postscript R2 = C (C.Render ())
   type Result  Postscript R2 = IO ()
   data Options Postscript R2 = PostscriptOptions
-          { psfileName     :: String       -- ^ the name of the file you want generated
-          , psSizeSpec     :: SizeSpec2D   -- ^ the requested size of the output
-          , psOutputFormat :: OutputFormat -- ^ the output format and associated options
+          { _psfileName     :: String       -- ^ the name of the file you want generated
+          , _psSizeSpec     :: SizeSpec2D   -- ^ the requested size of the output
+          , _psOutputFormat :: OutputFormat -- ^ the output format and associated options
           }
     deriving Show
 
@@ -117,14 +117,26 @@ instance Backend Postscript R2 where
     in  case out of
           EPS -> C.withEPSSurface file (round w) (round h) surfaceF
 
-  adjustDia c opts d = adjustDia2D psSizeSpec setPsSize c opts d
-    where setPsSize sz o = o { psSizeSpec = sz }
+  adjustDia c opts d = adjustDia2D _psSizeSpec setPsSize c opts d
+    where setPsSize sz o = o { _psSizeSpec = sz }
 
 sizeFromSpec size = case size of
    Width w'   -> (w',w')
    Height h'  -> (h',h')
    Dims w' h' -> (w',h')
    Absolute   -> (100,100)
+
+psfileName :: Lens' (Options Postscript R2) String
+psfileName = lens (\(PostscriptOptions {_psfileName = f}) -> f)
+                     (\o f -> o {_psfileName = f})
+
+psSizeSpec :: Lens' (Options Postscript R2) SizeSpec2D
+psSizeSpec = lens (\(PostscriptOptions {_psSizeSpec = s}) -> s)
+                     (\o s -> o {_psSizeSpec = s})
+
+psOutputFormat :: Lens' (Options Postscript R2) OutputFormat
+psOutputFormat = lens (\(PostscriptOptions {_psOutputFormat = t}) -> t)
+                     (\o t -> o {_psOutputFormat = t})
 
 instance MultiBackend Postscript R2 where
    renderDias b opts ds = doRenderPages b (combineSizes (map fst rs)) (map snd rs) >> return ()
@@ -139,8 +151,8 @@ instance MultiBackend Postscript R2 where
            renderOne (p, (M t,      s)) = withStyle b s mempty (render b (transform t p))
            renderOne (p, (t1 :| t2, s)) = withStyle b s t1 (render b (transform (t1 <> t2) p))
 
-       combineSizes (o:os) = o { psSizeSpec = uncurry Dims . fromMaxPair . sconcat $ f o N.:| fmap f os }
-         where f = mkMax . sizeFromSpec . psSizeSpec
+       combineSizes (o:os) = o { _psSizeSpec = uncurry Dims . fromMaxPair . sconcat $ f o N.:| fmap f os }
+         where f = mkMax . sizeFromSpec . _psSizeSpec
 
        doRenderPages _ (PostscriptOptions file size out) rs =
         let surfaceF surface = C.renderPagesWith surface (map (\(C r) -> r) rs)
@@ -164,15 +176,16 @@ postscriptMiscStyle s =
                 , handle fColor
                 , handle lFillRule
                 ]
-  where handle :: AttributeClass a => (a -> C.Render ()) -> Maybe (C.Render ())
-        handle f = f `fmap` getAttr s
-        clip     = mapM_ (\p -> renderC p >> C.clip) . getClip
-        fSize    = C.setFontSize <$> getFontSize
-        fFace    = C.setFontFace <$> getFont
-        fSlant   = C.setFontSlant . fromFontSlant <$> getFontSlant
-        fWeight  = C.setFontWeight . fromFontWeight <$> getFontWeight
-        fColor c = C.fillColor (getFillColor c)
-        lFillRule = C.setFillRule . getFillRule
+  where
+    handle :: AttributeClass a => (a -> C.Render ()) -> Maybe (C.Render ())
+    handle f = f `fmap` getAttr s
+    clip     = mapM_ (\p -> renderC p >> C.clip) . view getClip
+    fSize    = assign (C.drawState . C.font . C.size) <$> getFontSize
+    fFace    = assign (C.drawState . C.font . C.face) <$> getFont
+    fSlant   = assign (C.drawState . C.font . C.slant) .fromFontSlant <$> getFontSlant
+    fWeight  = assign (C.drawState . C.font . C.weight) . fromFontWeight <$> getFontWeight
+    fColor c = C.fillColor (getFillColor c)
+    lFillRule = assign (C.drawState . C.fillRule) . getFillRule
 
 fromFontSlant :: FontSlant -> C.FontSlant
 fromFontSlant FontSlantNormal   = C.FontSlantNormal
@@ -228,8 +241,8 @@ instance Renderable (Trail R2) Postscript where
           -- We need to ignore the fill if we see a line.
           -- Ignore fill is part of the drawing state, so
           -- it will be cleared by the `restore` after this
-          -- primitive.  
-          when (isLine t) $ C.setIgnoreFill True 
+          -- primitive.
+          when (isLine t) $ (C.drawState . C.ignoreFill) .= True
 
 instance Renderable (Path R2) Postscript where
   render _ p = C $ C.newPath >> F.mapM_ renderTrail (p^.pathTrails)
