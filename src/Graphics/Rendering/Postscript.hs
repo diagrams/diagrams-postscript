@@ -70,6 +70,7 @@ module Graphics.Rendering.Postscript
 
 import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..),colorToSRGBA)
 import Diagrams.TwoD.Path hiding (stroke, fillRule)
+import Control.Applicative ((<$>),(<*>))
 import Control.Monad.Writer
 import Control.Monad.State
 import Control.Monad(when)
@@ -299,44 +300,37 @@ save :: Render ()
 save = do
     renderPS "save"
     d <- use drawState
-    s <- use saved
-    saved .= d : s
+    saved %= (d:)
 
 -- | Replace the current state by popping the state stack.
 restore :: Render ()
 restore = do
     renderPS "restore"
-    d <- use drawState
     s <- use saved
     case s of
-      ds@(x:xs) -> do
+      []     -> do saved .= []
+      (x:xs) -> do
         drawState .= x
         saved     .= xs
-      []        -> do
-        drawState .= d
-        saved .= []
+
 
 -- | Push the current graphics state.
 gsave :: Render ()
 gsave = do
     renderPS "gsave"
     d <- use drawState
-    s <- use saved
-    saved .= d : s
+    saved %= (d:)
 
 -- | Pop the current graphics state.
 grestore :: Render ()
 grestore = do
     renderPS "grestore"
-    d <- use drawState
     s <- use saved
     case s of
-      ds@(x:xs) -> do
+      []     -> do saved .= []
+      (x:xs) -> do
           drawState .= x
           saved     .= xs
-      []        -> do
-          drawState .= d
-          saved .= []
 
 -- | Push the current transform matrix onto the execution stack.
 saveMatrix :: Render ()
@@ -456,8 +450,6 @@ epsFooter page = concat
 
 ---------------------------
 -- Font
-
-
 
 renderFont :: Render ()
 renderFont = do
