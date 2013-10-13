@@ -70,7 +70,7 @@ module Graphics.Rendering.Postscript
 
 import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..),colorToSRGBA)
 import Diagrams.TwoD.Path hiding (stroke, fillRule)
-import Control.Applicative ((<$>),(<*>))
+import Control.Applicative
 import Control.Monad.Writer
 import Control.Monad.State
 import Control.Monad(when)
@@ -133,11 +133,11 @@ emptyRS = RS emptyDS []
 
 -- | Type for a monad that writes Postscript using the commands we will define later.
 newtype PSWriter m = PSWriter { runPSWriter :: WriterT (DList String) IO m }
-  deriving (Functor, Monad, MonadWriter (DList String))
+  deriving (Functor, Applicative, Monad, MonadWriter (DList String))
 
 -- | Type of the monad that tracks the state from side-effecting commands.
 newtype Render m = Render { runRender :: StateT RenderState PSWriter m }
-  deriving (Functor, Monad, MonadState RenderState)
+  deriving (Functor, Applicative, Monad, MonadState RenderState)
 
 -- | Abstraction of the drawing surface details.
 data Surface = Surface { header :: Int -> String, footer :: Int -> String, width :: Int, height :: Int, fileName :: String }
@@ -453,11 +453,19 @@ epsFooter page = concat
 
 renderFont :: Render ()
 renderFont = do
-    face'   <- use $ drawState . font .face
-    slant'  <- use $ drawState . font .slant
-    weight' <- use $ drawState .font . weight
-    size'   <- use $ drawState .font . size
-    renderPS $ concat ["/", fontFromName face' slant' weight', " ", show size', " selectfont"]
+    n <- fontFromName <$> f face <*> f slant <*> f weight
+    s <- show <$> f size
+    renderPS $ concat ["/", n, " ", s, " selectfont"]
+  where
+    f x = use $ drawState . font . x
+
+--renderFont :: Render ()
+--renderFont = do
+--    face'   <- use $ drawState . font .face
+--    slant'  <- use $ drawState . font .slant
+--    weight' <- use $ drawState .font . weight
+--    size'   <- use $ drawState .font . size
+--    renderPS $ concat ["/", fontFromName face' slant' weight', " ", show size', " selectfont"]
 
 -- This is a little hacky.  I'm not sure there are good options.
 fontFromName :: String -> FontSlant -> FontWeight -> String
