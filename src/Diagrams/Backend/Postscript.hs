@@ -53,7 +53,7 @@ import           Diagrams.Core.Transform
 
 import           Diagrams.TwoD.Adjust          (adjustDia2D)
 import           Diagrams.TwoD.Ellipse
-import           Diagrams.TwoD.Path            (getClip, getFillRule)
+import           Diagrams.TwoD.Path            (Clip(Clip), getFillRule)
 import           Diagrams.TwoD.Shapes
 import           Diagrams.TwoD.Size            (requiredScaleT)
 import           Diagrams.TwoD.Text
@@ -179,7 +179,7 @@ postscriptMiscStyle s =
   where
     handle :: AttributeClass a => (a -> C.Render ()) -> Maybe (C.Render ())
     handle f = f `fmap` getAttr s
-    clip     = mapM_ (\p -> renderC p >> C.clip) . view getClip
+    clip     = mapM_ (\p -> renderC p >> C.clip) . op Clip
     fSize    = assign (C.drawState . C.font . C.size) <$> getFontSize
     fFace    = assign (C.drawState . C.font . C.face) <$> getFont
     fSlant   = assign (C.drawState . C.font . C.slant) .fromFontSlant <$> getFontSlant
@@ -245,7 +245,7 @@ instance Renderable (Trail R2) Postscript where
           when (isLine t) $ (C.drawState . C.ignoreFill) .= True
 
 instance Renderable (Path R2) Postscript where
-  render _ p = C $ C.newPath >> F.mapM_ renderTrail (p^.pathTrails)
+  render _ p = C $ C.newPath >> F.mapM_ renderTrail (op Path p)
     where renderTrail (viewLoc -> (unp2 -> p, tr)) = do
             uncurry C.moveTo p
             renderC tr
