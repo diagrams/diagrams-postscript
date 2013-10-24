@@ -1,4 +1,5 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TemplateHaskell            #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Rendering.Postscript
@@ -20,7 +21,7 @@
 -----------------------------------------------------------------------------
 module Graphics.Rendering.Postscript
   ( Render
-  , RenderState
+  , RenderState, drawState
   , Surface
   , PSWriter(..)
   , renderWith
@@ -54,34 +55,54 @@ module Graphics.Rendering.Postscript
   , lineJoin
   , miterLimit
   , setDash
-  , setFillRule
   , showText
   , showTextCentered
   , showTextAlign
   , showTextInBox
   , clip
-  
+
   , FontSlant(..)
   , FontWeight(..)
-  , setFontFace
-  , setFontSlant
-  , setFontWeight
-  , setFontSize
+  , face, slant, weight, size
 
-  , setIgnoreFill
+  , fillRule, ignoreFill, font
   ) where
 
 import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..),colorToSRGBA)
-import Diagrams.TwoD.Path hiding (stroke)
+import Diagrams.TwoD.Path hiding (stroke, fillRule)
+import Control.Applicative
 import Control.Monad.Writer
 import Control.Monad.State
 import Control.Monad(when)
+import Control.Lens  hiding (transform, moveTo)
 import Data.List(intersperse)
 import Data.DList(DList,toList,fromList)
 import Data.Word(Word8)
 import Data.Char(ord,isPrint)
 import Numeric(showIntAtBase)
 import System.IO (openFile, hPutStr, IOMode(..), hClose)
+
+data FontSlant = FontSlantNormal
+               | FontSlantItalic
+               | FontSlantOblique
+               | FontSlant Double
+            deriving (Show, Eq)
+
+data FontWeight = FontWeightNormal
+                | FontWeightBold
+            deriving (Show, Eq)
+
+data PostscriptFont = PostscriptFont
+    { _face   :: String
+    , _slant  :: FontSlant
+    , _weight :: FontWeight
+    , _size   :: Double
+    } deriving (Eq, Show)
+
+makeLenses '' PostscriptFont
+
+defaultFont :: PostscriptFont
+defaultFont = PostscriptFont "Helvetica" FontSlantNormal FontWeightNormal 1
 
 -- Here we want to mirror the state of side-effecting calls
 -- that we have emitted into the postscript file (at least
@@ -92,6 +113,8 @@ data DrawState = DS
                  , _ignoreFill :: Bool
                  } deriving (Eq)
 
+makeLenses ''DrawState
+
 -- This reflects the defaults from the standard.
 emptyDS :: DrawState
 emptyDS = DS Winding defaultFont False
@@ -101,21 +124,23 @@ data RenderState = RS
                    , _saved     :: [DrawState] -- A stack of passed states pushed by save and poped with restore.
                    }
 
+makeLenses ''RenderState
+
 emptyRS :: RenderState
 emptyRS = RS emptyDS []
 
--- 
+--
 
 -- | Type for a monad that writes Postscript using the commands we will define later.
 newtype PSWriter m = PSWriter { runPSWriter :: WriterT (DList String) IO m }
-  deriving (Functor, Monad, MonadWriter (DList String))
+  deriving (Functor, Applicative, Monad, MonadWriter (DList String))
 
 -- | Type of the monad that tracks the state from side-effecting commands.
 newtype Render m = Render { runRender :: StateT RenderState PSWriter m }
-  deriving (Functor, Monad, MonadState RenderState)
+  deriving (Functor, Applicative, Monad, MonadState RenderState)
 
 -- | Abstraction of the drawing surface details.
-data Surface = Surface { header :: Int -> String, footer :: Int -> String, width :: Int, height :: Int, fileName :: String } 
+data Surface = Surface { header :: Int -> String, footer :: Int -> String, width :: Int, height :: Int, fileName :: String }
 
 doRender :: Render a -> PSWriter a
 doRender r = evalStateT (runRender r) emptyRS
@@ -124,7 +149,7 @@ doRender r = evalStateT (runRender r) emptyRS
 --   passed 'Surface' and renders the commands built up in the
 --   'Render' argument.
 renderWith :: MonadIO m => Surface -> Render a -> m a
-renderWith s r = liftIO $ do 
+renderWith s r = liftIO $ do
     (v,ss) <- runWriterT . runPSWriter . doRender $ r
     h <- openFile (fileName s) WriteMode
     hPutStr h (header s 1)
@@ -136,15 +161,15 @@ renderWith s r = liftIO $ do
 -- | Renders multiple pages given as a list of 'Render' actions
 --   to the file associated with the 'Surface' argument.
 renderPagesWith :: MonadIO m => Surface -> [Render a] -> m [a]
-renderPagesWith s rs = liftIO $ do 
+renderPagesWith s rs = liftIO $ do
     h <- openFile (fileName s) WriteMode
     hPutStr h (header s (length rs))
-    
+
     vs <- mapM (page h) (zip rs [1..])
-    
+
     hClose h
     return vs
-  where 
+  where
     page h (r,i) = do
       (v,ss) <- runWriterT . runPSWriter . doRender $ r
       mapM_ (hPutStr h) (toList ss)
@@ -213,20 +238,20 @@ relCurveTo ax ay bx by cx cy = mkPSCall "rcurveto" [ax,ay,bx,by,cx,cy]
 stroke :: Render ()
 stroke = renderPS "s"
 
--- | Fill the current path.
 fill :: Render ()
 fill = do
-    (RS (DS {..}) _) <- get
-    unless _ignoreFill $
-      case _fillRule of
+    ign  <- use $ drawState . ignoreFill
+    rule <- use $ drawState . fillRule
+    unless ign $
+      case rule of
         Winding -> renderPS "fill"
         EvenOdd -> renderPS "eofill"
 
 -- | Fill the current path without affecting the graphics state.
 fillPreserve :: Render ()
 fillPreserve = do
-    (RS (DS {..}) _) <- get
-    unless _ignoreFill $ do
+    ign <- use $ drawState . ignoreFill
+    unless ign $ do
         gsave
         fill
         grestore
@@ -274,31 +299,38 @@ matrixPS vs = unwords ("[" : map show vs ++ ["]"])
 save :: Render ()
 save = do
     renderPS "save"
-    modify $ \rs@(RS{..}) -> rs { _saved = _drawState : _saved }
+    d <- use drawState
+    saved %= (d:)
 
 -- | Replace the current state by popping the state stack.
 restore :: Render ()
 restore = do
     renderPS "restore"
-    modify go
-  where
-    go rs@(RS{_saved = d:ds}) = rs { _drawState = d, _saved = ds }
-    go rs = rs
+    s <- use saved
+    case s of
+      []     -> do saved .= []
+      (x:xs) -> do
+        drawState .= x
+        saved     .= xs
+
 
 -- | Push the current graphics state.
 gsave :: Render ()
 gsave = do
     renderPS "gsave"
-    modify $ \rs@(RS{..}) -> rs { _saved = _drawState : _saved }
+    d <- use drawState
+    saved %= (d:)
 
 -- | Pop the current graphics state.
 grestore :: Render ()
 grestore = do
     renderPS "grestore"
-    modify go
-  where
-    go rs@(RS{_saved = d:ds}) = rs { _drawState = d, _saved = ds }
-    go rs = rs
+    s <- use saved
+    case s of
+      []     -> do saved .= []
+      (x:xs) -> do
+          drawState .= x
+          saved     .= xs
 
 -- | Push the current transform matrix onto the execution stack.
 saveMatrix :: Render ()
@@ -327,7 +359,7 @@ lineWidth w = mkPSCall "setlinewidth" [w]
 
 -- | Set the line cap style.
 lineCap :: LineCap -> Render ()
-lineCap lc = mkPSCall "setlinecap" [fromLineCap lc] 
+lineCap lc = mkPSCall "setlinecap" [fromLineCap lc]
 
 -- | Set the line join method.
 lineJoin :: LineJoin -> Render ()
@@ -342,10 +374,6 @@ setDash :: [Double] -- ^ Dash pattern (even indices are "on").
         -> Double   -- ^ Offset.
         -> Render ()
 setDash as offset = mkPSCall' "setdash" [showArray as, show offset]
-
--- | Set the fill rule.
-setFillRule :: FillRule -> Render ()
-setFillRule r = modify (\rs@(RS ds _) -> rs { _drawState = ds { _fillRule = r } })
 
 showArray :: Show a => [a] -> String
 showArray as = concat ["[", concat $ intersperse " " (map show as), "]"]
@@ -422,30 +450,14 @@ epsFooter page = concat
 
 ---------------------------
 -- Font
-data PostscriptFont = PostscriptFont
-    { _face   :: String
-    , _slant  :: FontSlant
-    , _weight :: FontWeight
-    , _size   :: Double
-    } deriving (Eq, Show)
-
-data FontSlant = FontSlantNormal
-               | FontSlantItalic
-               | FontSlantOblique
-               | FontSlant Double
-            deriving (Show, Eq)
-
-data FontWeight = FontWeightNormal
-                | FontWeightBold
-            deriving (Show, Eq)
-
-defaultFont :: PostscriptFont
-defaultFont = PostscriptFont "Helvetica" FontSlantNormal FontWeightNormal 1
 
 renderFont :: Render ()
 renderFont = do
-    (RS (DS _ (PostscriptFont {..}) _) _) <- get
-    renderPS $ concat ["/", fontFromName _face _slant _weight, " ", show _size, " selectfont"]
+    n <- fontFromName <$> f face <*> f slant <*> f weight
+    s <- show <$> f size
+    renderPS $ concat ["/", n, " ", s, " selectfont"]
+  where
+    f x = use $ drawState . font . x
 
 -- This is a little hacky.  I'm not sure there are good options.
 fontFromName :: String -> FontSlant -> FontWeight -> String
@@ -462,22 +474,3 @@ fontFromName n s w = font ++ bold w ++ italic s
     italic FontSlantItalic = "Italic"
     italic FontSlantOblique = "Oblique"
     italic _                = ""
-
--- | Set the font face.
-setFontFace :: String -> Render ()
-setFontFace n = modify (\rs@(RS ds@(DS {..})  _) -> rs { _drawState = ds { _font = _font { _face = n } } })
-
--- | Set the font slant.
-setFontSlant :: FontSlant -> Render ()
-setFontSlant s = modify (\rs@(RS ds@(DS {..})  _) -> rs { _drawState = ds { _font = _font { _slant = s } } })
-
--- | Set the font weight.
-setFontWeight :: FontWeight -> Render ()
-setFontWeight w = modify (\rs@(RS ds@(DS {..})  _) -> rs { _drawState = ds { _font = _font { _weight = w } } })
-
--- | Set the font size.
-setFontSize :: Double -> Render ()
-setFontSize s = modify (\rs@(RS ds@(DS {..})  _) -> rs { _drawState = ds { _font = _font { _size = s } } })
-
-setIgnoreFill :: Bool -> Render ()
-setIgnoreFill v = modify (\rs@(RS ds@(DS {..})  _) -> rs { _drawState = ds { _ignoreFill = v } })
