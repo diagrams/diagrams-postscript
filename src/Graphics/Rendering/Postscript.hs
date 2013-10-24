@@ -459,14 +459,6 @@ renderFont = do
   where
     f x = use $ drawState . font . x
 
---renderFont :: Render ()
---renderFont = do
---    face'   <- use $ drawState . font .face
---    slant'  <- use $ drawState . font .slant
---    weight' <- use $ drawState .font . weight
---    size'   <- use $ drawState .font . size
---    renderPS $ concat ["/", fontFromName face' slant' weight', " ", show size', " selectfont"]
-
 -- This is a little hacky.  I'm not sure there are good options.
 fontFromName :: String -> FontSlant -> FontWeight -> String
 fontFromName n s w = font ++ bold w ++ italic s
