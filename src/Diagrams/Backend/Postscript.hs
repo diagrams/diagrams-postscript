@@ -34,6 +34,7 @@ module Diagrams.Backend.Postscript
 
   ( -- * Backend token
     Postscript(..)
+  , B
 
     -- * Postscript-specific options
     -- $PostscriptOptions
@@ -76,6 +77,8 @@ import           Data.Typeable
 -- | This data declaration is simply used as a token to distinguish this rendering engine.
 data Postscript = Postscript
     deriving (Eq,Ord,Read,Show,Typeable)
+
+type B = Postscript
 
 -- | Postscript only supports EPS style output at the moment.  Future formats would each
 --   have their own associated properties that affect the output.
