@@ -50,27 +50,17 @@ import qualified Graphics.Rendering.Postscript as C
 
 import           Diagrams.Prelude              hiding (view)
 
-import           Diagrams.Core.Transform
-
 import           Diagrams.TwoD.Adjust          (adjustDia2D)
-import           Diagrams.TwoD.Ellipse
-import           Diagrams.TwoD.Path            (Clip(Clip), getFillRule)
-import           Diagrams.TwoD.Shapes
-import           Diagrams.TwoD.Size            (requiredScaleT)
+import           Diagrams.TwoD.Path            (Clip (Clip), getFillRule)
 import           Diagrams.TwoD.Text
 import           Diagrams.TwoD.Types
 
-import           Control.Applicative           ((<$>))
-import           Control.Monad                 (when)
 import           Control.Lens                  hiding (transform)
-import           Data.Maybe                    (catMaybes, fromMaybe)
-
-import           Data.VectorSpace
+import           Control.Monad                 (when)
+import           Data.Maybe                    (catMaybes)
 
 import qualified Data.Foldable                 as F
 import qualified Data.List.NonEmpty            as N
-import           Data.Monoid                   hiding ((<>))
-import           Data.Monoid.MList
 import           Data.Monoid.Split
 import           Data.Typeable
 
@@ -87,7 +77,7 @@ data OutputFormat = EPS -- ^ Encapsulated Postscript output.
 
 instance Monoid (Render Postscript R2) where
   mempty  = C $ return ()
-  (C r1) `mappend` (C r2) = C (r1 >> r2)
+  (C x) `mappend` (C y) = C (x >> y)
 
 
 instance Backend Postscript R2 where
@@ -123,6 +113,7 @@ instance Backend Postscript R2 where
   adjustDia c opts d = adjustDia2D _psSizeSpec setPsSize c opts d
     where setPsSize sz o = o { _psSizeSpec = sz }
 
+sizeFromSpec :: SizeSpec2D -> (Double, Double)
 sizeFromSpec size = case size of
    Width w'   -> (w',w')
    Height h'  -> (h',h')
@@ -144,8 +135,8 @@ psOutputFormat = lens (\(PostscriptOptions {_psOutputFormat = t}) -> t)
 instance MultiBackend Postscript R2 where
    renderDias b opts ds = doRenderPages b (combineSizes (map fst rs)) (map snd rs) >> return ()
      where
-       mkMax (a,b) = (Max a, Max b)
-       fromMaxPair (Max a, Max b) = (a,b)
+       mkMax (x,y) = (Max x, Max y)
+       fromMaxPair (Max x, Max y) = (x,y)
 
        rs = map mkRender ds
        mkRender d = (opts', mconcat . map renderOne . prims $ d')
@@ -154,11 +145,12 @@ instance MultiBackend Postscript R2 where
            renderOne (p, (M t,      s)) = withStyle b s mempty (render b (transform t p))
            renderOne (p, (t1 :| t2, s)) = withStyle b s t1 (render b (transform (t1 <> t2) p))
 
+       combineSizes [] = PostscriptOptions "" (Dims 100 100) EPS    -- arbitrary
        combineSizes (o:os) = o { _psSizeSpec = uncurry Dims . fromMaxPair . sconcat $ f o N.:| fmap f os }
          where f = mkMax . sizeFromSpec . _psSizeSpec
 
-       doRenderPages _ (PostscriptOptions file size out) rs =
-        let surfaceF surface = C.renderPagesWith surface (map (\(C r) -> r) rs)
+       doRenderPages _ (PostscriptOptions file size out) pages =
+        let surfaceF surface = C.renderPagesWith surface (map (\(C r) -> r) pages)
             (w,h) = sizeFromSpec size
         in case out of
            EPS -> C.withEPSSurface file (round w) (round h) surfaceF
@@ -249,8 +241,8 @@ instance Renderable (Trail R2) Postscript where
 
 instance Renderable (Path R2) Postscript where
   render _ p = C $ C.newPath >> F.mapM_ renderTrail (op Path p)
-    where renderTrail (viewLoc -> (unp2 -> p, tr)) = do
-            uncurry C.moveTo p
+    where renderTrail (viewLoc -> (unp2 -> pt, tr)) = do
+            uncurry C.moveTo pt
             renderC tr
 
 instance Renderable Text Postscript where

@@ -73,11 +73,9 @@ import Diagrams.TwoD.Path hiding (stroke, fillRule)
 import Control.Applicative
 import Control.Monad.Writer
 import Control.Monad.State
-import Control.Monad(when)
 import Control.Lens  hiding (transform, moveTo)
 import Data.List(intersperse)
 import Data.DList(DList,toList,fromList)
-import Data.Word(Word8)
 import Data.Char(ord,isPrint)
 import Numeric(showIntAtBase)
 import System.IO (openFile, hPutStr, IOMode(..), hClose)
@@ -140,7 +138,7 @@ newtype Render m = Render { runRender :: StateT RenderState PSWriter m }
   deriving (Functor, Applicative, Monad, MonadState RenderState)
 
 -- | Abstraction of the drawing surface details.
-data Surface = Surface { header :: Int -> String, footer :: Int -> String, width :: Int, height :: Int, fileName :: String }
+data Surface = Surface { header :: Int -> String, footer :: Int -> String, _width :: Int, _height :: Int, fileName :: String }
 
 doRender :: Render a -> PSWriter a
 doRender r = evalStateT (runRender r) emptyRS
@@ -413,6 +411,7 @@ stringPS ss = Render $ lift (tell (fromList ("(" : map escape ss)) >> tell (from
         escape c | isPrint c = [c]
                  | otherwise = '\\' : showIntAtBase 7 ("01234567"!!) (ord c) ""
 
+epsHeader :: Int -> Int -> Int -> String
 epsHeader w h pages = concat
           [ "%!PS-Adobe-3.0", if pages == 1 then " EPSF-3.0\n" else "\n"
           , "%%Creator: diagrams-postscript 0.1\n"
@@ -442,6 +441,8 @@ epsHeader w h pages = concat
           , "%%EndSetup\n"
           , "%%Page: 1 1\n"
           ]
+
+epsFooter :: Int -> String
 epsFooter page = concat
           [ "showpage\n"
           , "%%PageTrailer\n"
@@ -461,9 +462,9 @@ renderFont = do
 
 -- This is a little hacky.  I'm not sure there are good options.
 fontFromName :: String -> FontSlant -> FontWeight -> String
-fontFromName n s w = font ++ bold w ++ italic s
+fontFromName n s w = fontName ++ bold w ++ italic s
   where
-    font = map f n
+    fontName = map f n
     f ' ' = '-'
     f c   = c
 
