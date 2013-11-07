@@ -37,6 +37,8 @@ module Diagrams.Backend.Postscript.OptParse
        , pagesMain
        , animMain
        , Postscript
+
+       , 
        ) where
 
 import Diagrams.Prelude hiding (width, height, interval, option, value, (<>))
@@ -61,17 +63,25 @@ import System.Environment  (getArgs, getProgName)
 import System.FilePath     (addExtension, splitExtension)
 
 data DiagramOpts = DiagramOpts
-                   { width     :: Maybe Int
-                   , height    :: Maybe Int
-                   , output    :: FilePath
-                   , selection :: Maybe String
-                   , list      :: Bool
-                   , fpu       :: Double
-                   }
+    { width     :: Maybe Int
+    , height    :: Maybe Int
+    , output    :: FilePath
+    }
   deriving (Show, Data, Typeable)
 
-diagramOpts :: Bool -> Parser DiagramOpts
-diagramOpts sel = DiagramOpts
+data DiagramMultiOpts = DiagramMultiOpts
+    { selection :: Maybe String
+    , list      :: Bool
+    }
+  deriving (Show, Data, Typeable)
+
+data DiagramAnimOpts = DiagramAnimOpts
+    { fpu :: Double
+    }
+  deriving (Show, Data, Typeable)
+
+diagramOpts :: Parser DiagramOpts
+diagramOpts = DiagramOpts
     <$> (optional . option)
         ( long "width" <> short 'w'
        <> value 400
@@ -86,18 +96,20 @@ diagramOpts sel = DiagramOpts
         ( long "output" <> short 'o'
        <> metavar "OUTPUT"
        <> help "OUTPUT file")
-    <*> (if sel
-          then (optional . strOption)
-                ( long "selection" <> short 's'
-               <> metavar "NAME"
-               <> help "NAME of the diagram to render")
-          else pure Nothing)
-    <*> (if sel
-          then switch
-                ( long "list" <> short 'l'
-               <> help "List all available diagrams")
-          else pure False)
-    <*> option
+
+diagramMultiOpts :: Parser DiagramMultiOpts
+diagramMultiOpts = DiagramMultiOpts
+    <$> (optional . strOption)
+        ( long "selection" <> short 's'
+       <> metavar "NAME"
+       <> help "NAME of the diagram to render")
+    <*> switch
+        ( long "list" <> short 'l'
+       <> help "List all available diagrams")
+
+diagramAnimOpts :: Parser DiagramAnimOpts
+diagramAnimOpts = DiagramAnimOpts
+    <$> option
         ( long "fpu" <> short 'f'
        <> value 30.0
        <> help "Frames per unit time (for animations)")
@@ -112,10 +124,10 @@ helper' = abortOption ShowHelpText $ mconcat
   , help "Show this help text" 
   ]
 
-defaultOpts :: Bool -> IO DiagramOpts
-defaultOpts sel = do
+defaultOpts :: Parser a -> IO a
+defaultOpts optsParser = do
     prog <- getProgName
-    let p = info (helper' <*> diagramOpts sel)
+    let p = info (helper' <*> optsParser)
                 ( fullDesc
                <> progDesc "Command-line diagram generation."
                <> header prog)
@@ -162,7 +174,7 @@ defaultOpts sel = do
 
 defaultMain :: Diagram Postscript R2 -> IO ()
 defaultMain d = do
-    opts <- defaultOpts False
+    opts <- defaultOpts diagramOpts
     chooseRender opts (renderDia' d)
 
 chooseRender :: DiagramOpts -> (Options Postscript R2 -> IO ()) -> IO ()
@@ -211,11 +223,11 @@ renderDia' d o = renderDia Postscript o d >> return ()
 
 multiMain :: [(String, Diagram Postscript R2)] -> IO ()
 multiMain ds = do
-  opts <- defaultOpts True
-  if list opts
+  (opts,multi) <- defaultOpts ((,) <$> diagramOpts <*> diagramMultiOpts)
+  if list multi
     then showDiaList (map fst ds)
     else
-      case selection opts of
+      case selection multi of
         Nothing  -> putStrLn "No diagram selected." >> showDiaList (map fst ds)
         Just sel -> case lookup sel ds of
           Nothing -> putStrLn $ "Unknown diagram: " ++ sel
@@ -242,7 +254,7 @@ showDiaList ds = do
 
 pagesMain :: [Diagram Postscript R2] -> IO ()
 pagesMain ds = do
-  opts <- defaultOpts False
+  opts <- defaultOpts diagramOpts
   chooseRender opts (renderDias' ds)
 
 -- | @animMain@ is like 'defaultMain', but renders an animation
@@ -263,8 +275,8 @@ pagesMain ds = do
 -- output for each second (unit time) of animation.
 animMain :: Animation Postscript R2 -> IO ()
 animMain anim = do
-  opts <- defaultOpts False
-  let frames  = simulate (toRational $ fpu opts) anim
+  (opts,animOpts) <- defaultOpts ((,) <$> diagramOpts <*> diagramAnimOpts)
+  let frames  = simulate (toRational $ fpu animOpts) anim
       nDigits = length . show . length $ frames
   forM_ (zip [1..] frames) $ \(i,d) ->
     chooseRender (indexize nDigits i opts) (renderDia' d)
