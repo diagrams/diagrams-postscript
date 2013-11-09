@@ -1,6 +1,10 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.Postscript.OptParse
@@ -44,7 +48,7 @@ module Diagrams.Backend.Postscript.OptParse
 import Diagrams.Prelude hiding (width, height, interval, option, value, (<>))
 import Diagrams.Backend.Postscript
 
-import Control.Lens
+import Control.Lens hiding (argument)
 
 import Options.Applicative hiding ((&))
 
@@ -63,6 +67,49 @@ import Text.Printf
 
 import System.Environment  (getArgs, getProgName)
 import System.FilePath     (addExtension, splitExtension)
+
+class ReadMaybe a where
+    readMaybe :: String -> Maybe a
+
+instance Read a => ReadMaybe a where
+  readMaybe s = case reads s of
+                  [(x,"")] -> Just x
+                  _        -> Nothing
+
+class Parseable a where
+    parser :: Parser a
+
+-- The following instance would overlap with the product instance for
+-- Parseable.  We can't tell if they want to parse (a,b) as one argument or a
+-- as one argument and b as another.  Since this is the command line we almost
+-- certainly want the latter.  So we need to have less Read instances.
+--
+-- instance ReadMaybe a => Parseable a where
+--    parser = argument readMaybe mempty
+
+instance Parseable Int where
+    parser = argument readMaybe mempty
+   
+instance Parseable Char where
+    parser = argument readMaybe mempty
+
+instance Parseable Double where
+    parser = argument readMaybe mempty
+
+instance Parseable () where
+    parser = pure ()
+
+
+instance (Parseable a, Parseable b) => Parseable (a,b) where
+    parser = (,) <$> parser <*> parser
+
+instance Parseable a => Parseable [a] where
+    parser = many parser
+
+
+
+
+
 
 data DiagramOpts = DiagramOpts
     { _width     :: Maybe Int
@@ -298,3 +345,41 @@ indexize nDigits i opts = opts & output .~ output'
   where fmt         = "%0" ++ show nDigits ++ "d"
         output'     = addExtension (base ++ printf fmt (i::Integer)) ext
         (base, ext) = splitExtension (opts^.output)
+
+class ToDiagram b v d where
+    type Args d :: *
+
+    toDiagram :: d -> Args d -> Diagram b v
+
+instance ToDiagram b v (Diagram b v) where
+    type Args (Diagram b v) = ()
+
+    toDiagram d _ = d
+
+instance ToDiagram b v d => ToDiagram b v (a -> d) where
+    type Args (a -> d) = (a, Args d)
+
+    toDiagram f (a,args) = toDiagram (f a) args
+
+
+class Mainable a where
+    mainWith :: a -> IO ()
+
+class MainArgument r where
+
+instance Mainable (Diagram Postscript R2) where
+    mainWith = defaultMain
+
+instance Mainable [(String,Diagram Postscript R2)] where
+    mainWith = multiMain
+
+instance Mainable [Diagram Postscript R2] where
+    mainWith = pagesMain
+
+instance Mainable (Animation Postscript R2) where
+    mainWith = animMain
+
+instance (Parseable a, Parseable (Args d), ToDiagram Postscript R2 d) => Mainable (a -> d) where
+    mainWith f = do
+        (opts,a) <- defaultOpts ((,) <$> diagramOpts <*> parser)
+        chooseRender opts (renderDia' (toDiagram f a))
