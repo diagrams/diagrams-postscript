@@ -1,4 +1,9 @@
-{-# LANGUAGE DeriveDataTypeable, NoMonomorphismRestriction #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.Postscript.CmdLine
@@ -39,62 +44,26 @@ module Diagrams.Backend.Postscript.CmdLine
        , Postscript
        ) where
 
-import Diagrams.Prelude hiding (width, height, interval)
+import Diagrams.Prelude hiding (width, height, interval, option, value, (<>))
 import Diagrams.Backend.Postscript
+import Diagrams.Backend.CmdLine
 
-import System.Console.CmdArgs.Implicit hiding (args)
+import Control.Lens hiding (argument)
+
+import Options.Applicative hiding ((&))
 
 import Prelude
 
 import Data.Maybe          (fromMaybe)
 import Control.Monad       (forM_)
 import Control.Applicative ((<$>))
-import Control.Monad       (when)
 import Data.List.Split
 import Data.List           (intercalate)
 
 import Text.Printf
 
-import System.Environment  (getArgs, getProgName)
 import System.FilePath     (addExtension, splitExtension)
 
-data DiagramOpts = DiagramOpts
-                   { width     :: Maybe Int
-                   , height    :: Maybe Int
-                   , output    :: FilePath
-                   , selection :: Maybe String
-                   , list      :: Bool
-                   , fpu       :: Double
-                   }
-  deriving (Show, Data, Typeable)
-
-diagramOpts :: String -> Bool -> DiagramOpts
-diagramOpts prog sel = DiagramOpts
-  { width =  def
-             &= typ "INT"
-             &= help "Desired width of the output image (default 400)"
-
-  , height = def
-             &= typ "INT"
-             &= help "Desired height of the output image (default 400)"
-
-  , output = def
-           &= typFile
-           &= help "Output file"
-
-  , selection = def
-              &= help "Name of the diagram to render"
-              &= (if sel then typ "NAME" else ignore)
-
-  , list = def
-         &= (if sel then help "List all available diagrams" else ignore)
-
-  , fpu = 30
-          &= typ "FLOAT"
-          &= help "Frames per unit time (for animations)"
-  }
-  &= summary "Command-line diagram generation."
-  &= program prog
 
 -- | This is the simplest way to render diagrams, and is intended to
 --   be used like so:
@@ -136,27 +105,29 @@ diagramOpts prog sel = DiagramOpts
 -- @
 
 defaultMain :: Diagram Postscript R2 -> IO ()
-defaultMain d = do
-  prog <- getProgName
-  opts <- cmdArgs (diagramOpts prog False)
-  chooseRender opts (renderDia' d)
+defaultMain = mainWith
+
+instance Mainable (Diagram Postscript R2) where
+    type MainOpts (Diagram Postscript R2) = DiagramOpts
+
+    mainRender opts d = chooseRender opts (renderDia' d)
 
 chooseRender :: DiagramOpts -> (Options Postscript R2 -> IO ()) -> IO ()
 chooseRender opts render =
-  case splitOn "." (output opts) of
+  case splitOn "." (opts^.output) of
     [""] -> putStrLn "No output file given."
     ps |  last ps `elem` ["eps"] 
        || last ps `elem` ["ps"] -> do
            let outfmt = case last ps of
                           _     -> EPS
-               sizeSpec = case (width opts, height opts) of
+               sizeSpec = case (opts^.width, opts^.height) of
                             (Nothing, Nothing) -> Absolute
                             (Just w, Nothing)  -> Width (fromIntegral w)
                             (Nothing, Just h)  -> Height (fromIntegral h)
                             (Just w, Just h)   -> Dims (fromIntegral w)
                                                        (fromIntegral h)
 
-           render (PostscriptOptions (output opts) sizeSpec outfmt)
+           render (PostscriptOptions (opts^.output) sizeSpec outfmt)
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
        
 renderDias' :: [Diagram Postscript R2] -> Options Postscript R2 -> IO ()
@@ -186,17 +157,19 @@ renderDia' d o = renderDia Postscript o d >> return ()
 -- @
 
 multiMain :: [(String, Diagram Postscript R2)] -> IO ()
-multiMain ds = do
-  prog <- getProgName
-  opts <- cmdArgs (diagramOpts prog True)
-  if list opts
-    then showDiaList (map fst ds)
-    else
-      case selection opts of
-        Nothing  -> putStrLn "No diagram selected." >> showDiaList (map fst ds)
-        Just sel -> case lookup sel ds of
-          Nothing -> putStrLn $ "Unknown diagram: " ++ sel
-          Just d  -> chooseRender opts (renderDia' d)
+multiMain = mainWith
+
+instance Mainable [(String,Diagram Postscript R2)] where
+    type MainOpts [(String,Diagram Postscript R2)] = (DiagramOpts, DiagramMultiOpts)
+
+    mainRender (opts,multi) ds =
+        if multi^.list
+          then showDiaList (map fst ds)
+          else case multi^.selection of
+                 Nothing  -> putStrLn "No diagram selected." >> showDiaList (map fst ds)
+                 Just sel -> case lookup sel ds of
+                               Nothing -> putStrLn $ "Unknown diagram: " ++ sel
+                               Just d  -> mainRender opts d
 
 -- | Display the list of diagrams available for rendering.
 showDiaList :: [String] -> IO ()
@@ -218,10 +191,12 @@ showDiaList ds = do
 -- @
 
 pagesMain :: [Diagram Postscript R2] -> IO ()
-pagesMain ds = do
-  prog <- getProgName
-  opts <- cmdArgs (diagramOpts prog False)
-  chooseRender opts (renderDias' ds)
+pagesMain = mainWith
+
+instance Mainable [Diagram Postscript R2] where
+    type MainOpts [Diagram Postscript R2] = DiagramOpts
+
+    mainRender opts ds = chooseRender opts (renderDias' ds)
 
 -- | @animMain@ is like 'defaultMain', but renders an animation
 -- instead of a diagram.  It takes as input an animation and produces
@@ -240,19 +215,21 @@ pagesMain ds = do
 -- The @--fpu@ option can be used to control how many frames will be
 -- output for each second (unit time) of animation.
 animMain :: Animation Postscript R2 -> IO ()
-animMain anim = do
-  prog <- getProgName
-  opts <- cmdArgs (diagramOpts prog False)
-  let frames  = simulate (toRational $ fpu opts) anim
-      nDigits = length . show . length $ frames
-  forM_ (zip [1..] frames) $ \(i,d) ->
-    chooseRender (indexize nDigits i opts) (renderDia' d)
+animMain = mainWith
+
+instance Mainable (Animation Postscript R2) where
+    type MainOpts (Animation Postscript R2) = (DiagramOpts, DiagramAnimOpts)
+
+    mainRender (opts,animOpts) anim = do
+        let frames  = simulate (toRational $ animOpts^.fpu) anim
+            nDigits = length . show . length $ frames
+        forM_ (zip [1..] frames) $ \(i,d) -> mainRender (indexize nDigits i opts) d
 
 -- | @indexize d n@ adds the integer index @n@ to the end of the
 --   output file name, padding with zeros if necessary so that it uses
 --   at least @d@ digits.
 indexize :: Int -> Integer -> DiagramOpts -> DiagramOpts
-indexize nDigits i opts = opts { output = output' }
+indexize nDigits i opts = opts & output .~ output'
   where fmt         = "%0" ++ show nDigits ++ "d"
         output'     = addExtension (base ++ printf fmt (i::Integer)) ext
-        (base, ext) = splitExtension (output opts)
+        (base, ext) = splitExtension (opts^.output)
