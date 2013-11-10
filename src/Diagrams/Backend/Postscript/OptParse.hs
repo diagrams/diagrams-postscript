@@ -47,6 +47,7 @@ module Diagrams.Backend.Postscript.OptParse
 
 import Diagrams.Prelude hiding (width, height, interval, option, value, (<>))
 import Diagrams.Backend.Postscript
+import Diagrams.Backend.Postscript.CmdLine.Mainable
 
 import Control.Lens hiding (argument)
 
@@ -68,126 +69,6 @@ import Text.Printf
 import System.Environment  (getArgs, getProgName)
 import System.FilePath     (addExtension, splitExtension)
 
-class ReadMaybe a where
-    readMaybe :: String -> Maybe a
-
-instance Read a => ReadMaybe a where
-  readMaybe s = case reads s of
-                  [(x,"")] -> Just x
-                  _        -> Nothing
-
-class Parseable a where
-    parser :: Parser a
-
--- The following instance would overlap with the product instance for
--- Parseable.  We can't tell if they want to parse (a,b) as one argument or a
--- as one argument and b as another.  Since this is the command line we almost
--- certainly want the latter.  So we need to have less Read instances.
---
--- instance ReadMaybe a => Parseable a where
---    parser = argument readMaybe mempty
-
-instance Parseable Int where
-    parser = argument readMaybe mempty
-   
-instance Parseable Char where
-    parser = argument readMaybe mempty
-
-instance Parseable Double where
-    parser = argument readMaybe mempty
-
-instance Parseable () where
-    parser = pure ()
-
-
-instance (Parseable a, Parseable b) => Parseable (a,b) where
-    parser = (,) <$> parser <*> parser
-
-instance Parseable a => Parseable [a] where
-    parser = many parser
-
-
-
-
-
-
-data DiagramOpts = DiagramOpts
-    { _width     :: Maybe Int
-    , _height    :: Maybe Int
-    , _output    :: FilePath
-    }
-  deriving (Show, Data, Typeable)
-
-makeLenses ''DiagramOpts
-
-data DiagramMultiOpts = DiagramMultiOpts
-    { _selection :: Maybe String
-    , _list      :: Bool
-    }
-  deriving (Show, Data, Typeable)
-
-makeLenses ''DiagramMultiOpts
-
-data DiagramAnimOpts = DiagramAnimOpts
-    { _fpu :: Double
-    }
-  deriving (Show, Data, Typeable)
-
-makeLenses ''DiagramAnimOpts
-
-diagramOpts :: Parser DiagramOpts
-diagramOpts = DiagramOpts
-    <$> (optional . option)
-        ( long "width" <> short 'w'
-       <> value 400
-       <> metavar "WIDTH"
-       <> help "Desired WIDTH of the output image (default 400)")
-    <*> (optional . option)
-        ( long "height" <> short 'h'
-       <> value 400
-       <> metavar "HEIGHT"
-       <> help "Desired HEIGHT of the output image (default 400)")
-    <*> strOption
-        ( long "output" <> short 'o'
-       <> value ""
-       <> metavar "OUTPUT"
-       <> help "OUTPUT file")
-
-diagramMultiOpts :: Parser DiagramMultiOpts
-diagramMultiOpts = DiagramMultiOpts
-    <$> (optional . strOption)
-        ( long "selection" <> short 's'
-       <> metavar "NAME"
-       <> help "NAME of the diagram to render")
-    <*> switch
-        ( long "list" <> short 'l'
-       <> help "List all available diagrams")
-
-diagramAnimOpts :: Parser DiagramAnimOpts
-diagramAnimOpts = DiagramAnimOpts
-    <$> option
-        ( long "fpu" <> short 'f'
-       <> value 30.0
-       <> help "Frames per unit time (for animations)")
-
--- | A hidden \"helper\" option which always fails.
---   Taken from Options.Applicative.Extra but without the
---   short option 'h'.  We want the 'h' for Height.
-helper' :: Parser (a -> a)
-helper' = abortOption ShowHelpText $ mconcat
-  [ long "help"
-  , short '?'
-  , help "Show this help text" 
-  ]
-
-defaultOpts :: Parser a -> IO a
-defaultOpts optsParser = do
-    prog <- getProgName
-    let p = info (helper' <*> optsParser)
-                ( fullDesc
-               <> progDesc "Command-line diagram generation."
-               <> header prog)
-    execParser p
 
 -- | This is the simplest way to render diagrams, and is intended to
 --   be used like so:
@@ -229,9 +110,12 @@ defaultOpts optsParser = do
 -- @
 
 defaultMain :: Diagram Postscript R2 -> IO ()
-defaultMain d = do
-    opts <- defaultOpts diagramOpts
-    chooseRender opts (renderDia' d)
+defaultMain = mainWith
+
+instance Mainable (Diagram Postscript R2) where
+    type MainOpts (Diagram Postscript R2) = DiagramOpts
+
+    mainRender opts d = chooseRender opts (renderDia' d)
 
 chooseRender :: DiagramOpts -> (Options Postscript R2 -> IO ()) -> IO ()
 chooseRender opts render =
@@ -278,16 +162,19 @@ renderDia' d o = renderDia Postscript o d >> return ()
 -- @
 
 multiMain :: [(String, Diagram Postscript R2)] -> IO ()
-multiMain ds = do
-  (opts,multi) <- defaultOpts ((,) <$> diagramOpts <*> diagramMultiOpts)
-  if multi^.list
-    then showDiaList (map fst ds)
-    else
-      case multi^.selection of
-        Nothing  -> putStrLn "No diagram selected." >> showDiaList (map fst ds)
-        Just sel -> case lookup sel ds of
-          Nothing -> putStrLn $ "Unknown diagram: " ++ sel
-          Just d  -> chooseRender opts (renderDia' d)
+multiMain = mainWith
+
+instance Mainable [(String,Diagram Postscript R2)] where
+    type MainOpts [(String,Diagram Postscript R2)] = (DiagramOpts, DiagramMultiOpts)
+
+    mainRender (opts,multi) ds =
+        if multi^.list
+          then showDiaList (map fst ds)
+          else case multi^.selection of
+                 Nothing  -> putStrLn "No diagram selected." >> showDiaList (map fst ds)
+                 Just sel -> case lookup sel ds of
+                               Nothing -> putStrLn $ "Unknown diagram: " ++ sel
+                               Just d  -> mainRender opts d
 
 -- | Display the list of diagrams available for rendering.
 showDiaList :: [String] -> IO ()
@@ -309,9 +196,12 @@ showDiaList ds = do
 -- @
 
 pagesMain :: [Diagram Postscript R2] -> IO ()
-pagesMain ds = do
-  opts <- defaultOpts diagramOpts
-  chooseRender opts (renderDias' ds)
+pagesMain = mainWith
+
+instance Mainable [Diagram Postscript R2] where
+    type MainOpts [Diagram Postscript R2] = DiagramOpts
+
+    mainRender opts ds = chooseRender opts (renderDias' ds)
 
 -- | @animMain@ is like 'defaultMain', but renders an animation
 -- instead of a diagram.  It takes as input an animation and produces
@@ -330,12 +220,15 @@ pagesMain ds = do
 -- The @--fpu@ option can be used to control how many frames will be
 -- output for each second (unit time) of animation.
 animMain :: Animation Postscript R2 -> IO ()
-animMain anim = do
-  (opts,animOpts) <- defaultOpts ((,) <$> diagramOpts <*> diagramAnimOpts)
-  let frames  = simulate (toRational $ animOpts^.fpu) anim
-      nDigits = length . show . length $ frames
-  forM_ (zip [1..] frames) $ \(i,d) ->
-    chooseRender (indexize nDigits i opts) (renderDia' d)
+animMain = mainWith
+
+instance Mainable (Animation Postscript R2) where
+    type MainOpts (Animation Postscript R2) = (DiagramOpts, DiagramAnimOpts)
+
+    mainRender (opts,animOpts) anim = do
+        let frames  = simulate (toRational $ animOpts^.fpu) anim
+            nDigits = length . show . length $ frames
+        forM_ (zip [1..] frames) $ \(i,d) -> mainRender (indexize nDigits i opts) d
 
 -- | @indexize d n@ adds the integer index @n@ to the end of the
 --   output file name, padding with zeros if necessary so that it uses
@@ -345,41 +238,3 @@ indexize nDigits i opts = opts & output .~ output'
   where fmt         = "%0" ++ show nDigits ++ "d"
         output'     = addExtension (base ++ printf fmt (i::Integer)) ext
         (base, ext) = splitExtension (opts^.output)
-
-class ToDiagram b v d where
-    type Args d :: *
-
-    toDiagram :: d -> Args d -> Diagram b v
-
-instance ToDiagram b v (Diagram b v) where
-    type Args (Diagram b v) = ()
-
-    toDiagram d _ = d
-
-instance ToDiagram b v d => ToDiagram b v (a -> d) where
-    type Args (a -> d) = (a, Args d)
-
-    toDiagram f (a,args) = toDiagram (f a) args
-
-
-class Mainable a where
-    mainWith :: a -> IO ()
-
-class MainArgument r where
-
-instance Mainable (Diagram Postscript R2) where
-    mainWith = defaultMain
-
-instance Mainable [(String,Diagram Postscript R2)] where
-    mainWith = multiMain
-
-instance Mainable [Diagram Postscript R2] where
-    mainWith = pagesMain
-
-instance Mainable (Animation Postscript R2) where
-    mainWith = animMain
-
-instance (Parseable a, Parseable (Args d), ToDiagram Postscript R2 d) => Mainable (a -> d) where
-    mainWith f = do
-        (opts,a) <- defaultOpts ((,) <$> diagramOpts <*> parser)
-        chooseRender opts (renderDia' (toDiagram f a))
