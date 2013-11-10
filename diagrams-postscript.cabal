@@ -28,6 +28,7 @@ Source-repository head
 Library
   Exposed-modules:     Diagrams.Backend.Postscript
                        Diagrams.Backend.Postscript.CmdLine
+                       Diagrams.Backend.Postscript.CmdLine.Mainable
                        Diagrams.Backend.Postscript.OptParse
                        Graphics.Rendering.Postscript
   Hs-source-dirs:      src

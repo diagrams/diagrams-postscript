@@ -120,6 +120,16 @@ instance Parseable Double where
 instance Parseable String where
     parser = argument Just mempty
 
+instance Parseable DiagramOpts where
+    parser = diagramOpts
+
+instance Parseable DiagramMultiOpts where
+    parser = diagramMultiOpts
+
+instance Parseable DiagramAnimOpts where
+    parser = diagramAnimOpts
+
+
 -- This instance is needed to signal the end of a chain of
 -- nested tuples.
 instance Parseable () where
@@ -137,15 +147,17 @@ instance Parseable a => Parseable [a] where
 -- | This class allows us to collect up arguments as well as things that can
 --   produce a diagram and in turn produce a diagram.  This will let us write
 --   something akin to curry and uncurry.
-class ToDiagram b v d where
+class ToDiagram d where
     type Args d :: *
+    type DiagramResult d :: *
 
-    toDiagram :: d -> Args d -> Diagram b v
+    toDiagram :: d -> Args d -> DiagramResult d
 
 -- | A diagram can always produce a diagram when given '()' as an argument.
 --   This is our base case.
-instance ToDiagram b v (Diagram b v) where
+instance ToDiagram (Diagram b v) where
     type Args (Diagram b v) = ()
+    type DiagramResult (Diagram b v) = Diagram b v
 
     toDiagram d _ = d
 
@@ -158,8 +170,9 @@ instance ToDiagram b v (Diagram b v) where
 --   The previous paragraph stands as a witness to the fact that Haskell code
 --   is clearer and easier to understand then paragraphs in English written by
 --   me.
-instance ToDiagram b v d => ToDiagram b v (a -> d) where
+instance ToDiagram d => ToDiagram (a -> d) where
     type Args (a -> d) = (a, Args d)
+    type DiagramResult (a -> d) = DiagramResult d
 
     toDiagram f (a,args) = toDiagram (f a) args
 
@@ -182,14 +195,10 @@ class Mainable d where
         (opts,()) <- mainArgs d
         mainRender opts d
 
-instance (Parseable a, Parseable (Args d), ToDiagram b v d, Mainable (Diagram b v)) => Mainable (a -> d) where
-    type MainOpts (a -> d) = ()
+instance (Parseable a, Parseable (Args d), ToDiagram d, Mainable (DiagramResult d)) => Mainable (a -> d) where
+    type MainOpts (a -> d) = (MainOpts (DiagramResult (a -> d)), Args (a -> d))
 
-    mainRender () _  = return ()
-
-    mainWith f = do
-        (opts,a) <- defaultOpts ((,) <$> parser <*> parser)
-        mainRender opts (toDiagram f a)
+    mainRender (opts, a) f  = mainRender opts (toDiagram f a)
 
 
 diagramOpts :: Parser DiagramOpts
