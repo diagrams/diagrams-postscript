@@ -4,6 +4,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.Postscript.CmdLine
@@ -48,17 +49,11 @@ import Diagrams.Prelude hiding (width, height, interval, option, value, (<>))
 import Diagrams.Backend.Postscript
 import Diagrams.Backend.CmdLine
 
-import Control.Lens hiding (argument)
-
-import Options.Applicative hiding ((&))
+import Control.Lens
 
 import Prelude
 
-import Data.Maybe          (fromMaybe)
-import Control.Monad       (forM_)
-import Control.Applicative ((<$>))
 import Data.List.Split
-import Data.List           (intercalate)
 
 -- | This is the simplest way to render diagrams, and is intended to
 --   be used like so:
@@ -108,7 +103,7 @@ instance Mainable (Diagram Postscript R2) where
     mainRender opts d = chooseRender opts (renderDia' d)
 
 chooseRender :: DiagramOpts -> (Options Postscript R2 -> IO ()) -> IO ()
-chooseRender opts render =
+chooseRender opts renderer =
   case splitOn "." (opts^.output) of
     [""] -> putStrLn "No output file given."
     ps |  last ps `elem` ["eps"] 
@@ -122,7 +117,7 @@ chooseRender opts render =
                             (Just w, Just h)   -> Dims (fromIntegral w)
                                                        (fromIntegral h)
 
-           render (PostscriptOptions (opts^.output) sizeSpec outfmt)
+           renderer (PostscriptOptions (opts^.output) sizeSpec outfmt)
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
        
 renderDias' :: [Diagram Postscript R2] -> Options Postscript R2 -> IO ()
