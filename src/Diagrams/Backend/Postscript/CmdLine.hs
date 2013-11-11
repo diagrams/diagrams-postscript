@@ -60,11 +60,6 @@ import Control.Applicative ((<$>))
 import Data.List.Split
 import Data.List           (intercalate)
 
-import Text.Printf
-
-import System.FilePath     (addExtension, splitExtension)
-
-
 -- | This is the simplest way to render diagrams, and is intended to
 --   be used like so:
 --
@@ -162,20 +157,7 @@ multiMain = mainWith
 instance Mainable [(String,Diagram Postscript R2)] where
     type MainOpts [(String,Diagram Postscript R2)] = (DiagramOpts, DiagramMultiOpts)
 
-    mainRender (opts,multi) ds =
-        if multi^.list
-          then showDiaList (map fst ds)
-          else case multi^.selection of
-                 Nothing  -> putStrLn "No diagram selected." >> showDiaList (map fst ds)
-                 Just sel -> case lookup sel ds of
-                               Nothing -> putStrLn $ "Unknown diagram: " ++ sel
-                               Just d  -> mainRender opts d
-
--- | Display the list of diagrams available for rendering.
-showDiaList :: [String] -> IO ()
-showDiaList ds = do
-  putStrLn "Available diagrams:"
-  putStrLn $ "  " ++ intercalate " " ds 
+    mainRender = defaultMultiMainRender
 
 -- | @pagesMain@ is like 'defaultMain', except instead of a single
 --   diagram it takes a list of diagrams and each wil be rendered as a page
@@ -220,16 +202,4 @@ animMain = mainWith
 instance Mainable (Animation Postscript R2) where
     type MainOpts (Animation Postscript R2) = (DiagramOpts, DiagramAnimOpts)
 
-    mainRender (opts,animOpts) anim = do
-        let frames  = simulate (toRational $ animOpts^.fpu) anim
-            nDigits = length . show . length $ frames
-        forM_ (zip [1..] frames) $ \(i,d) -> mainRender (indexize nDigits i opts) d
-
--- | @indexize d n@ adds the integer index @n@ to the end of the
---   output file name, padding with zeros if necessary so that it uses
---   at least @d@ digits.
-indexize :: Int -> Integer -> DiagramOpts -> DiagramOpts
-indexize nDigits i opts = opts & output .~ output'
-  where fmt         = "%0" ++ show nDigits ++ "d"
-        output'     = addExtension (base ++ printf fmt (i::Integer)) ext
-        (base, ext) = splitExtension (opts^.output)
+    mainRender = defaultAnimMainRender
