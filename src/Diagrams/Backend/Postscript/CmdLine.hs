@@ -1,4 +1,6 @@
-{-# LANGUAGE DeriveDataTypeable, NoMonomorphismRestriction #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.Postscript.CmdLine
@@ -18,83 +20,91 @@
 -- * 'pagesMain' is like 'defaultMain' but renders a list of
 --   diagrams as pages in a single file.
 --
+-- * 'animMain' renders an animation at a given frame rate
+--   into separate files with an index number.
+--
+-- * 'mainWith' is a generic form that does all of the above but with
+--   a slightly scarier type.  See "Diagrams.Backend.CmdLine".  This
+--   form can also take a function type that has a subtable final result
+--   (any of arguments to the above types) and 'Parseable' arguments.
+--
 -- If you want to generate diagrams programmatically---/i.e./ if you
 -- want to do anything more complex than what the below functions
 -- provide---you have several options.
 --
--- * A simple but somewhat inflexible approach is to wrap up
---   'defaultMain' (or 'multiMain', or 'pagesMain') in a call to
---   'System.Environment.withArgs'.
+-- * Use a function with 'mainWith'.  This may require making
+--   'Parseable' instances for custom argument types.
 --
--- * A more flexible approach is to directly call 'renderDia'; see
+-- * Make a new 'Mainable' instance.  This may require a newtype
+--   wrapper on your diagram type to avoid the existing instances.
+--   This gives you more control over argument parsing, intervening
+--   steps, and diagram creation.
+--
+-- * Build option records and pass them along with a diagram to 'mainRender'
+--   from "Diagrams.Backend.CmdLine".
+--
+-- * An even more flexible approach is to directly call 'renderDia'; see
 --   "Diagrams.Backend.Postscript" for more information.
 --
+-- For a tutorial on command-line diagram creation see
+-- <http://projects.haskell.org/diagrams/doc/cmdline.html>.
+-- 
 -----------------------------------------------------------------------------
 
 module Diagrams.Backend.Postscript.CmdLine
-       ( defaultMain
+       ( 
+         -- * General form of @main@
+         -- $mainwith
+
+         mainWith
+
+         -- * Supported forms of @main@
+
+       , defaultMain
        , multiMain
        , pagesMain
        , animMain
+
+         -- * Backend tokens
+
        , Postscript
-       ) where
+       , B
 
-import Diagrams.Prelude hiding (width, height, interval)
+      ) where
+
+import Diagrams.Prelude hiding (width, height, interval, option, value, (<>))
 import Diagrams.Backend.Postscript
+import Diagrams.Backend.CmdLine
 
-import System.Console.CmdArgs.Implicit hiding (args)
+import Control.Lens
 
 import Prelude
 
-import Data.Maybe          (fromMaybe)
-import Control.Monad       (forM_)
-import Control.Applicative ((<$>))
-import Control.Monad       (when)
 import Data.List.Split
-import Data.List           (intercalate)
 
-import Text.Printf
+-- $mainwith
+-- The 'mainWith' method unifies all of the other forms of @main@ and is
+-- now the recommended way to build a command-line diagrams program.  It
+-- works as a direct replacement for 'defaultMain', 'multiMain', 'pagesMain',
+-- or 'animMain' as well as allowing more general arguments.  For example,
+-- given a function that produces a diagram when given an @Int@ and a @'Colour'
+-- Double@, 'mainWith' will produce a program that looks for additional number
+-- and color arguments.
+--
+-- > ... definitions ...
+-- > f :: Int -> Colour Double -> Diagram Postscript R2
+-- > f i c = ...
+-- >
+-- > main = mainWith f
+--
+-- We can run this program as follows:
+--
+-- > $ ghc --make MyDiagram
+-- >
+-- > # output image.eps built by `f 20 red`
+-- > $ ./MyDiagram -o image.eps -w 200 20 red
 
-import System.Environment  (getArgs, getProgName)
-import System.FilePath     (addExtension, splitExtension)
 
-data DiagramOpts = DiagramOpts
-                   { width     :: Maybe Int
-                   , height    :: Maybe Int
-                   , output    :: FilePath
-                   , selection :: Maybe String
-                   , list      :: Bool
-                   , fpu       :: Double
-                   }
-  deriving (Show, Data, Typeable)
-
-diagramOpts :: String -> Bool -> DiagramOpts
-diagramOpts prog sel = DiagramOpts
-  { width =  def
-             &= typ "INT"
-             &= help "Desired width of the output image (default 400)"
-
-  , height = def
-             &= typ "INT"
-             &= help "Desired height of the output image (default 400)"
-
-  , output = def
-           &= typFile
-           &= help "Output file"
-
-  , selection = def
-              &= help "Name of the diagram to render"
-              &= (if sel then typ "NAME" else ignore)
-
-  , list = def
-         &= (if sel then help "List all available diagrams" else ignore)
-
-  , fpu = 30
-          &= typ "FLOAT"
-          &= help "Frames per unit time (for animations)"
-  }
-  &= summary "Command-line diagram generation."
-  &= program prog
 
 -- | This is the simplest way to render diagrams, and is intended to
 --   be used like so:
@@ -113,20 +123,19 @@ diagramOpts prog sel = DiagramOpts
 --   options.  Currently it looks something like
 --
 -- @
--- Command-line diagram generation.
+-- ./Program
 --
--- Foo [OPTIONS]
+-- Usage: ./Program [-w|--width WIDTH] [-h|--height HEIGHT] [-o|--output OUTPUT]
+--   Command-line diagram generation.
 --
--- Common flags:
---   -w --width=INT         Desired width of the output image
---   -h --height=INT        Desired height of the output image
---   -o --output=FILE       Output file
---   -f --fpu=FLOAT         Frames per unit time (for animations)
---   -? --help              Display help message
---   -V --version           Print version information
+-- Available options:
+--   -?,--help                Show this help text
+--   -w,--width WIDTH         Desired WIDTH of the output image (default 400)
+--   -h,--height HEIGHT       Desired HEIGHT of the output image (default 400)
+--   -o,--output OUTPUT       OUTPUT file
 -- @
 --
---   For example, a couple common scenarios include
+--   For example, a common scenario is
 --
 -- @
 -- $ ghc --make MyDiagram
@@ -136,27 +145,29 @@ diagramOpts prog sel = DiagramOpts
 -- @
 
 defaultMain :: Diagram Postscript R2 -> IO ()
-defaultMain d = do
-  prog <- getProgName
-  opts <- cmdArgs (diagramOpts prog False)
-  chooseRender opts (renderDia' d)
+defaultMain = mainWith
+
+instance Mainable (Diagram Postscript R2) where
+    type MainOpts (Diagram Postscript R2) = DiagramOpts
+
+    mainRender opts d = chooseRender opts (renderDia' d)
 
 chooseRender :: DiagramOpts -> (Options Postscript R2 -> IO ()) -> IO ()
-chooseRender opts render =
-  case splitOn "." (output opts) of
+chooseRender opts renderer =
+  case splitOn "." (opts^.output) of
     [""] -> putStrLn "No output file given."
     ps |  last ps `elem` ["eps"] 
        || last ps `elem` ["ps"] -> do
            let outfmt = case last ps of
                           _     -> EPS
-               sizeSpec = case (width opts, height opts) of
+               sizeSpec = case (opts^.width, opts^.height) of
                             (Nothing, Nothing) -> Absolute
                             (Just w, Nothing)  -> Width (fromIntegral w)
                             (Nothing, Just h)  -> Height (fromIntegral h)
                             (Just w, Just h)   -> Dims (fromIntegral w)
                                                        (fromIntegral h)
 
-           render (PostscriptOptions (output opts) sizeSpec outfmt)
+           renderer (PostscriptOptions (opts^.output) sizeSpec outfmt)
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
        
 renderDias' :: [Diagram Postscript R2] -> Options Postscript R2 -> IO ()
@@ -186,26 +197,15 @@ renderDia' d o = renderDia Postscript o d >> return ()
 -- @
 
 multiMain :: [(String, Diagram Postscript R2)] -> IO ()
-multiMain ds = do
-  prog <- getProgName
-  opts <- cmdArgs (diagramOpts prog True)
-  if list opts
-    then showDiaList (map fst ds)
-    else
-      case selection opts of
-        Nothing  -> putStrLn "No diagram selected." >> showDiaList (map fst ds)
-        Just sel -> case lookup sel ds of
-          Nothing -> putStrLn $ "Unknown diagram: " ++ sel
-          Just d  -> chooseRender opts (renderDia' d)
+multiMain = mainWith
 
--- | Display the list of diagrams available for rendering.
-showDiaList :: [String] -> IO ()
-showDiaList ds = do
-  putStrLn "Available diagrams:"
-  putStrLn $ "  " ++ intercalate " " ds 
+instance Mainable [(String,Diagram Postscript R2)] where
+    type MainOpts [(String,Diagram Postscript R2)] = (DiagramOpts, DiagramMultiOpts)
+
+    mainRender = defaultMultiMainRender
 
 -- | @pagesMain@ is like 'defaultMain', except instead of a single
---   diagram it takes a list of diagrams and each wil be rendered as a page
+--   diagram it takes a list of diagrams and each will be rendered as a page
 --   in the Postscript file.
 --
 --   Example usage:
@@ -218,10 +218,12 @@ showDiaList ds = do
 -- @
 
 pagesMain :: [Diagram Postscript R2] -> IO ()
-pagesMain ds = do
-  prog <- getProgName
-  opts <- cmdArgs (diagramOpts prog False)
-  chooseRender opts (renderDias' ds)
+pagesMain = mainWith
+
+instance Mainable [Diagram Postscript R2] where
+    type MainOpts [Diagram Postscript R2] = DiagramOpts
+
+    mainRender opts ds = chooseRender opts (renderDias' ds)
 
 -- | @animMain@ is like 'defaultMain', but renders an animation
 -- instead of a diagram.  It takes as input an animation and produces
@@ -240,19 +242,9 @@ pagesMain ds = do
 -- The @--fpu@ option can be used to control how many frames will be
 -- output for each second (unit time) of animation.
 animMain :: Animation Postscript R2 -> IO ()
-animMain anim = do
-  prog <- getProgName
-  opts <- cmdArgs (diagramOpts prog False)
-  let frames  = simulate (toRational $ fpu opts) anim
-      nDigits = length . show . length $ frames
-  forM_ (zip [1..] frames) $ \(i,d) ->
-    chooseRender (indexize nDigits i opts) (renderDia' d)
+animMain = mainWith
 
--- | @indexize d n@ adds the integer index @n@ to the end of the
---   output file name, padding with zeros if necessary so that it uses
---   at least @d@ digits.
-indexize :: Int -> Integer -> DiagramOpts -> DiagramOpts
-indexize nDigits i opts = opts { output = output' }
-  where fmt         = "%0" ++ show nDigits ++ "d"
-        output'     = addExtension (base ++ printf fmt (i::Integer)) ext
-        (base, ext) = splitExtension (output opts)
+instance Mainable (Animation Postscript R2) where
+    type MainOpts (Animation Postscript R2) = (DiagramOpts, DiagramAnimOpts)
+
+    mainRender = defaultAnimMainRender output
