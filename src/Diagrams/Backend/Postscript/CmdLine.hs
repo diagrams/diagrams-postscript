@@ -54,6 +54,7 @@
 module Diagrams.Backend.Postscript.CmdLine
        ( 
          -- * General form of @main@
+         -- $mainwith
 
          mainWith
 
@@ -80,6 +81,30 @@ import Control.Lens
 import Prelude
 
 import Data.List.Split
+
+-- $mainwith
+-- The 'mainWith' method unifies all of the other forms of @main@ and is
+-- now the recommended way to build a command-line diagrams program.  It
+-- works as a direct replacement for 'defaultMain', 'multiMain', 'pagesMain',
+-- or 'animMain' as well as allowing more general arguments.  For example,
+-- given a function that produces a diagram when given an @Int@ and a @'Colour'
+-- Double@, 'mainWith' will produce a program that looks for additional number
+-- and color arguments.
+--
+-- > ... definitions ...
+-- > f :: Int -> Colour Double -> Diagram Postscript R2
+-- > f i c = ...
+-- >
+-- > main = mainWith f
+--
+-- We can run this program as follows:
+--
+-- > $ ghc --make MyDiagram
+-- >
+-- > # output image.eps built by `f 20 red`
+-- > $ ./MyDiagram -o image.eps -w 200 20 red
+
+
 
 -- | This is the simplest way to render diagrams, and is intended to
 --   be used like so:
@@ -222,4 +247,4 @@ animMain = mainWith
 instance Mainable (Animation Postscript R2) where
     type MainOpts (Animation Postscript R2) = (DiagramOpts, DiagramAnimOpts)
 
-    mainRender = defaultAnimMainRender
+    mainRender = defaultAnimMainRender output
