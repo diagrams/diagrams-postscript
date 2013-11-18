@@ -20,26 +20,53 @@
 -- * 'pagesMain' is like 'defaultMain' but renders a list of
 --   diagrams as pages in a single file.
 --
+-- * 'animMain' renders an animation at a given frame rate
+--   into separate files with an index number.
+--
+-- * 'mainWith' is a generic form that does all of the above but with
+--   a slightly scarier type.  See "Diagrams.Backend.CmdLine".  This
+--   form can also take a function type that has a subtable final result
+--   (any of arguments to the above types) and 'Parseable' arguments.
+--
 -- If you want to generate diagrams programmatically---/i.e./ if you
 -- want to do anything more complex than what the below functions
 -- provide---you have several options.
 --
--- * A simple but somewhat inflexible approach is to wrap up
---   'defaultMain' (or 'multiMain', or 'pagesMain') in a call to
---   'System.Environment.withArgs'.
+-- * Use a function with 'mainWith'.  This may require making
+--   'Parseable' instances for custom argument types.
 --
--- * A more flexible approach is to directly call 'renderDia'; see
+-- * Make a new 'Mainable' instance.  This may require a newtype
+--   wrapper on your diagram type to avoid the existing instances.
+--   This gives you more control over argument parsing, intervening
+--   steps, and diagram creation.
+--
+-- * Build option records and pass them along with a diagram to 'mainRender'
+--   from "Diagrams.Backend.CmdLine".
+--
+-- * An even more flexible approach is to directly call 'renderDia'; see
 --   "Diagrams.Backend.Postscript" for more information.
 --
 -----------------------------------------------------------------------------
 
 module Diagrams.Backend.Postscript.CmdLine
-       ( defaultMain
+       ( 
+         -- * General form of @main@
+
+         mainWith
+
+         -- * Supported forms of @main@
+
+       , defaultMain
        , multiMain
        , pagesMain
        , animMain
+
+         -- * Backend tokens
+
        , Postscript
-       ) where
+       , B
+
+      ) where
 
 import Diagrams.Prelude hiding (width, height, interval, option, value, (<>))
 import Diagrams.Backend.Postscript
@@ -68,20 +95,19 @@ import Data.List.Split
 --   options.  Currently it looks something like
 --
 -- @
--- Command-line diagram generation.
+-- ./Program
 --
--- Foo [OPTIONS]
+-- Usage: ./Program [-w|--width WIDTH] [-h|--height HEIGHT] [-o|--output OUTPUT]
+--   Command-line diagram generation.
 --
--- Common flags:
---   -w --width=INT         Desired width of the output image
---   -h --height=INT        Desired height of the output image
---   -o --output=FILE       Output file
---   -f --fpu=FLOAT         Frames per unit time (for animations)
---   -? --help              Display help message
---   -V --version           Print version information
+-- Available options:
+--   -?,--help                Show this help text
+--   -w,--width WIDTH         Desired WIDTH of the output image (default 400)
+--   -h,--height HEIGHT       Desired HEIGHT of the output image (default 400)
+--   -o,--output OUTPUT       OUTPUT file
 -- @
 --
---   For example, a couple common scenarios include
+--   For example, a common scenario is
 --
 -- @
 -- $ ghc --make MyDiagram
