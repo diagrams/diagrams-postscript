@@ -46,6 +46,9 @@
 -- * An even more flexible approach is to directly call 'renderDia'; see
 --   "Diagrams.Backend.Postscript" for more information.
 --
+-- For a tutorial on command-line diagram creation see
+-- <http://projects.haskell.org/diagrams/doc/cmdline.html>.
+-- 
 -----------------------------------------------------------------------------
 
 module Diagrams.Backend.Postscript.CmdLine
@@ -177,7 +180,7 @@ instance Mainable [(String,Diagram Postscript R2)] where
     mainRender = defaultMultiMainRender
 
 -- | @pagesMain@ is like 'defaultMain', except instead of a single
---   diagram it takes a list of diagrams and each wil be rendered as a page
+--   diagram it takes a list of diagrams and each will be rendered as a page
 --   in the Postscript file.
 --
 --   Example usage:
