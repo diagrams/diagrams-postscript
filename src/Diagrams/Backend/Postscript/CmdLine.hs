@@ -130,8 +130,8 @@ import Data.List.Split
 --
 -- Available options:
 --   -?,--help                Show this help text
---   -w,--width WIDTH         Desired WIDTH of the output image (default 400)
---   -h,--height HEIGHT       Desired HEIGHT of the output image (default 400)
+--   -w,--width WIDTH         Desired WIDTH of the output image
+--   -h,--height HEIGHT       Desired HEIGHT of the output image
 --   -o,--output OUTPUT       OUTPUT file
 -- @
 --

@@ -29,7 +29,7 @@ import Diagrams.Backend.Postscript.CmdLine
 
 d = circle 1 # fc blue
 
-main = defaultMain (pad 1.1 d)
+main = mainWith (pad 1.1 d)
 ```
 
 Save this to file named `Circle.hs` and compile it:
@@ -44,16 +44,16 @@ find out more about how to call it.
 
 ```
 $ ./Circle --help
-Command-line diagram generation.
+./Circle
 
-Circle [OPTIONS]
+Usage: ./Circle [-w|--width WIDTH] [-h|--height HEIGHT] [-o|--output OUTPUT]
+  Command-line diagram generation.
 
-Common flags:
-  -w --width=INT    Desired width of the output image
-  -h --height=INT   Desired height of the output image
-  -o --output=FILE  Output file
-  -? --help         Display help message
-  -V --version      Print version information
+Available options:
+  -?,--help                Show this help text
+  -w,--width WIDTH         Desired WIDTH of the output image
+  -h,--height HEIGHT       Desired HEIGHT of the output image
+  -o,--output OUTPUT       OUTPUT file
 ```
 
 The output type will be automatically determined from the file
