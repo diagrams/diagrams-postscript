@@ -1,3 +1,12 @@
+1.0 (25 November 2013)
+----------------------
+
+- Add support for miter limit attribute.
+- Re-implement via new backend `RTree` interface, leading to
+  smaller output files.
+- Use new command-line interface from `diagrams-lib`.
+- Export `B` as an alias for `SVG` token
+
 0.7.0.2 (27 September 2013)
 ---------------------------
 
