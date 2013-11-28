@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable        #-}
+{-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE GADTs                     #-}
@@ -60,9 +61,11 @@ import           Control.Monad                 (when)
 import           Data.Maybe                    (catMaybes)
 
 import qualified Data.Foldable                 as F
+import           Data.Hashable                 (Hashable)
 import qualified Data.List.NonEmpty            as N
 import           Data.Monoid.Split
 import           Data.Typeable
+import           GHC.Generics                  (Generic)
 
 -- | This data declaration is simply used as a token to distinguish this rendering engine.
 data Postscript = Postscript
@@ -73,7 +76,9 @@ type B = Postscript
 -- | Postscript only supports EPS style output at the moment.  Future formats would each
 --   have their own associated properties that affect the output.
 data OutputFormat = EPS -- ^ Encapsulated Postscript output.
-  deriving (Eq, Ord, Read, Show, Enum, Bounded, Typeable)
+  deriving (Eq, Ord, Read, Show, Enum, Bounded, Typeable, Generic)
+
+instance Hashable OutputFormat
 
 instance Monoid (Render Postscript R2) where
   mempty  = C $ return ()
@@ -88,7 +93,7 @@ instance Backend Postscript R2 where
           , _psSizeSpec     :: SizeSpec2D   -- ^ the requested size of the output
           , _psOutputFormat :: OutputFormat -- ^ the output format and associated options
           }
-    deriving Show
+    deriving (Show, Generic)
 
   withStyle _ s t (C r) = C $ do
     C.save
@@ -112,6 +117,8 @@ instance Backend Postscript R2 where
 
   adjustDia c opts d = adjustDia2D _psSizeSpec setPsSize c opts d
     where setPsSize sz o = o { _psSizeSpec = sz }
+
+instance Hashable (Options Postscript R2)
 
 sizeFromSpec :: SizeSpec2D -> (Double, Double)
 sizeFromSpec size = case size of
