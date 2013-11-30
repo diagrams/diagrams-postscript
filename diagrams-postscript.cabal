@@ -33,7 +33,7 @@ Library
   Build-depends:       base >= 4.2 && < 4.8,
                        mtl >= 2.0 && < 2.2,
                        filepath,
-                       dlist >= 0.5 && < 0.6,
+                       dlist >= 0.5 && < 0.7,
                        vector-space >= 0.7.7 && < 0.9,
                        diagrams-core >= 1.0 && < 1.1,
                        diagrams-lib >= 1.0 && < 1.1,
