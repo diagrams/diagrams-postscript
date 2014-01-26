@@ -1,3 +1,8 @@
+1.0.1 (26 January 2014)
+-----------------------
+
+- Add `Hashable (Options Postscript R2)` instance
+
 1.0.0.2 (1 January 2014)
 ------------------------
 
