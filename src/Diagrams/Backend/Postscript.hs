@@ -61,7 +61,7 @@ import           Control.Monad                 (when)
 import           Data.Maybe                    (catMaybes)
 
 import qualified Data.Foldable                 as F
-import           Data.Hashable                 (Hashable)
+import           Data.Hashable                 (Hashable (..))
 import qualified Data.List.NonEmpty            as N
 import           Data.Monoid.Split
 import           Data.Typeable
@@ -93,7 +93,7 @@ instance Backend Postscript R2 where
           , _psSizeSpec     :: SizeSpec2D   -- ^ the requested size of the output
           , _psOutputFormat :: OutputFormat -- ^ the output format and associated options
           }
-    deriving (Show, Generic)
+    deriving (Show)
 
   withStyle _ s t (C r) = C $ do
     C.save
@@ -118,7 +118,11 @@ instance Backend Postscript R2 where
   adjustDia c opts d = adjustDia2D _psSizeSpec setPsSize c opts d
     where setPsSize sz o = o { _psSizeSpec = sz }
 
-instance Hashable (Options Postscript R2)
+instance Hashable (Options Postscript R2) where
+  hashWithSalt s (PostscriptOptions fn sz out) =
+    s `hashWithSalt` fn
+      `hashWithSalt` sz
+      `hashWithSalt` out
 
 sizeFromSpec :: SizeSpec2D -> (Double, Double)
 sizeFromSpec size = case size of
