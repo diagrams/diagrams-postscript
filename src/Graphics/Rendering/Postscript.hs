@@ -73,7 +73,7 @@ import Diagrams.TwoD.Path hiding (stroke, fillRule)
 import Control.Applicative
 import Control.Monad.Writer
 import Control.Monad.State
-import Control.Lens  hiding (transform, moveTo)
+import Control.Lens (makeLenses, use, (%=), (.=))
 import Data.List(intersperse)
 import Data.DList(DList,toList,fromList)
 import Data.Char(ord,isPrint)
