@@ -27,6 +27,7 @@ Source-repository head
 
 Library
   Exposed-modules:     Diagrams.Backend.Postscript
+                       Diagrams.Backend.Postscript.CMYK
                        Diagrams.Backend.Postscript.CmdLine
                        Graphics.Rendering.Postscript
   Hs-source-dirs:      src
@@ -37,6 +38,7 @@ Library
                        vector-space >= 0.7.7 && < 0.9,
                        diagrams-core >= 1.0 && < 1.2,
                        diagrams-lib >= 1.0.1 && < 1.2,
+                       data-default-class < 0.1,
                        split >= 0.1.2 && < 0.3,
                        monoid-extras >= 0.3 && < 0.4,
                        semigroups >= 0.3.4 && < 0.13,

@@ -49,7 +49,9 @@ module Graphics.Rendering.Postscript
   , scale
   , rotate
   , strokeColor
+  , strokeColorCMYK
   , fillColor
+  , fillColorCMYK
   , lineWidth
   , lineCap
   , lineJoin
@@ -66,6 +68,8 @@ module Graphics.Rendering.Postscript
   , face, slant, weight, size
 
   , fillRule, ignoreFill, font
+
+  , CMYK(..), cyan, magenta, yellow, blacK
   ) where
 
 import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..),colorToSRGBA)
@@ -79,6 +83,16 @@ import Data.DList(DList,toList,fromList)
 import Data.Char(ord,isPrint)
 import Numeric(showIntAtBase)
 import System.IO (openFile, hPutStr, IOMode(..), hClose)
+
+data CMYK = CMYK 
+    { _cyan    :: Double
+    , _magenta :: Double
+    , _yellow  :: Double
+    , _blacK   :: Double
+    }
+    deriving (Show, Eq)
+
+makeLenses ''CMYK
 
 data FontSlant = FontSlantNormal
                | FontSlantItalic
@@ -339,6 +353,7 @@ saveMatrix = renderPS "matrix currentmatrix"
 restoreMatrix :: Render ()
 restoreMatrix = renderPS "setmatrix"
 
+-- RGB colors
 colorPS :: Color c => c -> [Double]
 colorPS c = [ r, g, b ]
   where (r,g,b,_) = colorToSRGBA c
@@ -350,6 +365,18 @@ strokeColor c = mkPSCall "setrgbcolor" (colorPS c)
 -- | Set the color of the fill.
 fillColor :: (Color c) => c -> Render ()
 fillColor c = mkPSCall "setrgbcolor" (colorPS c)
+
+-- CMYK colors
+colorCMYK :: CMYK -> [Double]
+colorCMYK (CMYK c m y k) = [c,m,y,k]
+
+-- | Set the color of the stroke.
+strokeColorCMYK :: CMYK -> Render ()
+strokeColorCMYK c = mkPSCall "setcmykcolor" (colorCMYK c)
+
+-- | Set the color of the fill.
+fillColorCMYK :: CMYK -> Render ()
+fillColorCMYK c = mkPSCall "setcmykcolor" (colorCMYK c)
 
 -- | Set the line width.
 lineWidth :: Double -> Render ()

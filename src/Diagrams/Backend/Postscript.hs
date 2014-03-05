@@ -48,6 +48,7 @@ module Diagrams.Backend.Postscript
 
 
 import qualified Graphics.Rendering.Postscript as C
+import           Diagrams.Backend.Postscript.CMYK
 
 import           Diagrams.Prelude              hiding (view)
 
@@ -180,6 +181,7 @@ postscriptMiscStyle s =
                 , handle fWeight
                 , handle fSize
                 , handle fColor
+                , handle fColorCMYK
                 , handle lFillRule
                 ]
   where
@@ -191,6 +193,7 @@ postscriptMiscStyle s =
     fSlant   = assign (C.drawState . C.font . C.slant) .fromFontSlant <$> getFontSlant
     fWeight  = assign (C.drawState . C.font . C.weight) . fromFontWeight <$> getFontWeight
     fColor c = C.fillColor (getFillColor c)
+    fColorCMYK c = C.fillColorCMYK (getFillColorCMYK c)
     lFillRule = assign (C.drawState . C.fillRule) . getFillRule
 
 fromFontSlant :: FontSlant -> C.FontSlant
@@ -205,7 +208,9 @@ fromFontWeight FontWeightBold   = C.FontWeightBold
 postscriptStyle :: Style v -> C.Render ()
 postscriptStyle s = sequence_ -- foldr (>>) (return ())
               . catMaybes $ [ handle fColor
+                            , handle fColorCMYK
                             , handle lColor
+                            , handle lColorCMYK
                             , handle lWidth
                             , handle lJoin
                             , handle lMiter
@@ -215,7 +220,9 @@ postscriptStyle s = sequence_ -- foldr (>>) (return ())
   where handle :: (AttributeClass a) => (a -> C.Render ()) -> Maybe (C.Render ())
         handle f = f `fmap` getAttr s
         lColor = C.strokeColor . getLineColor
+        lColorCMYK = C.strokeColorCMYK . getLineColorCMYK
         fColor c = C.fillColor (getFillColor c) >> C.fillPreserve
+        fColorCMYK c = C.fillColorCMYK (getFillColorCMYK c) >> C.fillPreserve
         lWidth = C.lineWidth . getLineWidth
         lCap = C.lineCap . getLineCap
         lJoin = C.lineJoin . getLineJoin
