@@ -1,3 +1,14 @@
+1.0.2 (XXX)
+-----------
+
+* **New features**
+
+  - Experimental support for raw CMYK colors.
+
+* **Dependency/version changes**
+
+  - Allow `diagrams-core-1.1` and `diagrams-lib-1.1`.
+
 1.0.1.2 (6 February 2014)
 -------------------------
 
