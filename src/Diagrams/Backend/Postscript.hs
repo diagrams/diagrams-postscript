@@ -44,6 +44,8 @@ module Diagrams.Backend.Postscript
 
     -- * Postscript-supported output formats
   , OutputFormat(..)
+
+  , renderDias
   ) where
 
 import           Diagrams.Core.Compile
@@ -64,7 +66,6 @@ import           Data.Maybe                    (catMaybes)
 import qualified Data.Foldable                 as F
 import           Data.Hashable                 (Hashable (..))
 import qualified Data.List.NonEmpty            as N
-import           Data.Monoid.Split
 import           Data.Tree
 import           Data.Typeable
 import           GHC.Generics                  (Generic)
@@ -145,28 +146,28 @@ psOutputFormat :: Lens' (Options Postscript R2) OutputFormat
 psOutputFormat = lens (\(PostscriptOptions {_psOutputFormat = t}) -> t)
                      (\o t -> o {_psOutputFormat = t})
 
---instance MultiBackend Postscript R2 where
---   renderDias b opts ds = doRenderPages b (combineSizes (map fst rs)) (map snd rs) >> return ()
---     where
---       mkMax (x,y) = (Max x, Max y)
---       fromMaxPair (Max x, Max y) = (x,y)
+renderDias :: (Semigroup m, Monoid m) =>
+               Options Postscript R2 -> [QDiagram Postscript R2 m] -> IO [()]
+renderDias opts ds = case opts^.psOutputFormat of
+  EPS -> C.withEPSSurface (opts^.psfileName) (round w) (round h) surfaceF
+    where
+      surfaceF surface = C.renderPagesWith surface (map (\(C r) -> r) rs)
+      (w,h) = sizeFromSpec (cSize^.psSizeSpec)
 
---       rs = map mkRender ds
---       mkRender d = (opts', toRender d')--(opts', mconcat . map renderOne . prims $ d')
---         where
---           (opts', _, d') = adjustDia b opts d
---           --renderOne (p, (M t,      s)) = withStyle b s mempty (render b (transform t p))
---           --renderOne (p, (t1 :| t2, s)) = withStyle b s t1 (render b (transform (t1 <> t2) p))
+      dropMid (x, _, z) = (x,z)
 
---       combineSizes [] = PostscriptOptions "" (Dims 100 100) EPS    -- arbitrary
---       combineSizes (o:os) = o { _psSizeSpec = uncurry Dims . fromMaxPair . sconcat $ f o N.:| fmap f os }
---         where f = mkMax . sizeFromSpec . _psSizeSpec
+      optsdss = map (dropMid . adjustDia Postscript opts) ds
+      cSize = (combineSizes $ map fst optsdss)
+      g2o = scaling (sqrt (w * h))
+      rs = map (toRender . toRTree g2o . snd) optsdss
 
---       doRenderPages _ (PostscriptOptions file size out) pages =
---        let surfaceF surface = C.renderPagesWith surface (map (\(C r) -> r) pages)
---            (w,h) = sizeFromSpec size
---        in case out of
---           EPS -> C.withEPSSurface file (round w) (round h) surfaceF
+      combineSizes [] = PostscriptOptions "" (Dims 100 100) EPS
+      combineSizes (o:os) =
+        o { _psSizeSpec = uncurry Dims . fromMaxPair . sconcat $ f o N.:| fmap f os }
+        where
+          f = mkMax . sizeFromSpec . _psSizeSpec
+          fromMaxPair (Max x, Max y) = (x,y)
+          mkMax (x,y) = (Max x, Max y)
 
 renderC :: (Renderable a Postscript, V a ~ R2) => a -> C.Render ()
 renderC a = case render Postscript a of C r -> r

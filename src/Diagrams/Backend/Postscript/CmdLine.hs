@@ -62,7 +62,7 @@ module Diagrams.Backend.Postscript.CmdLine
 
        , defaultMain
        , multiMain
-       --, pagesMain
+       , pagesMain
        , animMain
 
          -- * Backend tokens
@@ -170,8 +170,8 @@ chooseRender opts renderer =
            renderer (PostscriptOptions (opts^.output) sizeSpec outfmt)
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
 
---renderDias' :: [Diagram Postscript R2] -> Options Postscript R2 -> IO ()
---renderDias' ds o = renderDias Postscript o ds >> return ()
+renderDias' :: [Diagram Postscript R2] -> Options Postscript R2 -> IO ()
+renderDias' ds o = renderDias o ds >> return ()
 
 renderDia' :: Diagram Postscript R2 -> Options Postscript R2 -> IO ()
 renderDia' d o = renderDia Postscript o d >> return ()
@@ -217,13 +217,13 @@ instance Mainable [(String,Diagram Postscript R2)] where
 -- $ ./MultiPage -o Pages.ps -w 200
 -- @
 
---pagesMain :: [Diagram Postscript R2] -> IO ()
---pagesMain = mainWith
+pagesMain :: [Diagram Postscript R2] -> IO ()
+pagesMain = mainWith
 
---instance Mainable [Diagram Postscript R2] where
---    type MainOpts [Diagram Postscript R2] = DiagramOpts
+instance Mainable [Diagram Postscript R2] where
+    type MainOpts [Diagram Postscript R2] = DiagramOpts
 
---    mainRender opts ds = chooseRender opts (renderDias' ds)
+    mainRender opts ds = chooseRender opts (renderDias' ds)
 
 -- | @animMain@ is like 'defaultMain', but renders an animation
 -- instead of a diagram.  It takes as input an animation and produces
