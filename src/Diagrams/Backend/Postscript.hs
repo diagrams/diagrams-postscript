@@ -46,7 +46,7 @@ module Diagrams.Backend.Postscript
   , OutputFormat(..)
   ) where
 
-
+import           Diagrams.Core.Compile
 import qualified Graphics.Rendering.Postscript as C
 import           Diagrams.Backend.Postscript.CMYK
 
@@ -65,6 +65,7 @@ import qualified Data.Foldable                 as F
 import           Data.Hashable                 (Hashable (..))
 import qualified Data.List.NonEmpty            as N
 import           Data.Monoid.Split
+import           Data.Tree
 import           Data.Typeable
 import           GHC.Generics                  (Generic)
 
@@ -96,28 +97,27 @@ instance Backend Postscript R2 where
           }
     deriving (Show)
 
-  withStyle _ s t (C r) = C $ do
-    C.save
-    postscriptMiscStyle s
-    r
-    postscriptTransf t
-    postscriptStyle s
-    C.stroke
-    C.restore
-
-  doRender _ (PostscriptOptions file size out) (C r) =
+  renderRTree _ opts t =
     let surfaceF surface = C.renderWith surface r
-        -- Everything except Dims is arbitrary. The backend
-        -- should have first run 'adjustDia' to update the
-        -- final size of the diagram with explicit dimensions,
-        -- so normally we would only expect to get Dims anyway.
-        (w,h) = sizeFromSpec size
+        (w,h) = sizeFromSpec (opts^.psSizeSpec)
+        r = runC . toRender $ t
+    in case opts^.psOutputFormat of
+         EPS -> C.withEPSSurface (opts^.psfileName) (round w) (round h) surfaceF
 
-    in  case out of
-          EPS -> C.withEPSSurface file (round w) (round h) surfaceF
+  adjustDia c opts d = adjustDia2D psSizeSpec c opts d
 
-  adjustDia c opts d = adjustDia2D _psSizeSpec setPsSize c opts d
-    where setPsSize sz o = o { _psSizeSpec = sz }
+runC :: Render Postscript R2 -> C.Render ()
+runC (C r) = r
+
+toRender :: RTree Postscript R2 a -> Render Postscript R2
+toRender (Node (RPrim p) _) = render Postscript p
+toRender (Node (RStyle sty) rs) = C $ do
+  C.save
+  postscriptMiscStyle sty
+  postscriptStyle sty
+  C.stroke
+  C.restore
+
 
 instance Hashable (Options Postscript R2) where
   hashWithSalt s (PostscriptOptions fn sz out) =
@@ -144,28 +144,28 @@ psOutputFormat :: Lens' (Options Postscript R2) OutputFormat
 psOutputFormat = lens (\(PostscriptOptions {_psOutputFormat = t}) -> t)
                      (\o t -> o {_psOutputFormat = t})
 
-instance MultiBackend Postscript R2 where
-   renderDias b opts ds = doRenderPages b (combineSizes (map fst rs)) (map snd rs) >> return ()
-     where
-       mkMax (x,y) = (Max x, Max y)
-       fromMaxPair (Max x, Max y) = (x,y)
+--instance MultiBackend Postscript R2 where
+--   renderDias b opts ds = doRenderPages b (combineSizes (map fst rs)) (map snd rs) >> return ()
+--     where
+--       mkMax (x,y) = (Max x, Max y)
+--       fromMaxPair (Max x, Max y) = (x,y)
 
-       rs = map mkRender ds
-       mkRender d = (opts', mconcat . map renderOne . prims $ d')
-         where
-           (opts', d') = adjustDia b opts d
-           renderOne (p, (M t,      s)) = withStyle b s mempty (render b (transform t p))
-           renderOne (p, (t1 :| t2, s)) = withStyle b s t1 (render b (transform (t1 <> t2) p))
+--       rs = map mkRender ds
+--       mkRender d = (opts', toRender d')--(opts', mconcat . map renderOne . prims $ d')
+--         where
+--           (opts', _, d') = adjustDia b opts d
+--           --renderOne (p, (M t,      s)) = withStyle b s mempty (render b (transform t p))
+--           --renderOne (p, (t1 :| t2, s)) = withStyle b s t1 (render b (transform (t1 <> t2) p))
 
-       combineSizes [] = PostscriptOptions "" (Dims 100 100) EPS    -- arbitrary
-       combineSizes (o:os) = o { _psSizeSpec = uncurry Dims . fromMaxPair . sconcat $ f o N.:| fmap f os }
-         where f = mkMax . sizeFromSpec . _psSizeSpec
+--       combineSizes [] = PostscriptOptions "" (Dims 100 100) EPS    -- arbitrary
+--       combineSizes (o:os) = o { _psSizeSpec = uncurry Dims . fromMaxPair . sconcat $ f o N.:| fmap f os }
+--         where f = mkMax . sizeFromSpec . _psSizeSpec
 
-       doRenderPages _ (PostscriptOptions file size out) pages =
-        let surfaceF surface = C.renderPagesWith surface (map (\(C r) -> r) pages)
-            (w,h) = sizeFromSpec size
-        in case out of
-           EPS -> C.withEPSSurface file (round w) (round h) surfaceF
+--       doRenderPages _ (PostscriptOptions file size out) pages =
+--        let surfaceF surface = C.renderPagesWith surface (map (\(C r) -> r) pages)
+--            (w,h) = sizeFromSpec size
+--        in case out of
+--           EPS -> C.withEPSSurface file (round w) (round h) surfaceF
 
 renderC :: (Renderable a Postscript, V a ~ R2) => a -> C.Render ()
 renderC a = case render Postscript a of C r -> r
@@ -188,7 +188,7 @@ postscriptMiscStyle s =
     handle :: AttributeClass a => (a -> C.Render ()) -> Maybe (C.Render ())
     handle f = f `fmap` getAttr s
     clip     = mapM_ (\p -> renderC p >> C.clip) . op Clip
-    fSize    = assign (C.drawState . C.font . C.size) <$> getFontSize
+    fSize    = assign (C.drawState . C.font . C.size) <$> (fromOutput . getFontSize)
     fFace    = assign (C.drawState . C.font . C.face) <$> getFont
     fSlant   = assign (C.drawState . C.font . C.slant) .fromFontSlant <$> getFontSlant
     fWeight  = assign (C.drawState . C.font . C.weight) . fromFontWeight <$> getFontWeight
@@ -223,12 +223,12 @@ postscriptStyle s = sequence_ -- foldr (>>) (return ())
         lColorCMYK = C.strokeColorCMYK . getLineColorCMYK
         fColor c = C.fillColor (getFillColor c) >> C.fillPreserve
         fColorCMYK c = C.fillColorCMYK (getFillColorCMYK c) >> C.fillPreserve
-        lWidth = C.lineWidth . getLineWidth
+        lWidth = C.lineWidth . fromOutput . getLineWidth
         lCap = C.lineCap . getLineCap
         lJoin = C.lineJoin . getLineJoin
         lMiter = C.miterLimit . getLineMiterLimit
         lDashing (getDashing -> Dashing ds offs) =
-          C.setDash ds offs
+          C.setDash (map fromOutput ds) (fromOutput offs)
 
 postscriptTransf :: Transformation R2 -> C.Render ()
 postscriptTransf t = C.transform a1 a2 b1 b2 c1 c2
