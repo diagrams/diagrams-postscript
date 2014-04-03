@@ -114,10 +114,11 @@ toRender (Node (RPrim p) _) = render Postscript p
 toRender (Node (RStyle sty) rs) = C $ do
   C.save
   postscriptMiscStyle sty
+  runC $ F.foldMap toRender rs
   postscriptStyle sty
   C.stroke
   C.restore
-
+toRender (Node _ rs) = F.foldMap toRender rs
 
 instance Hashable (Options Postscript R2) where
   hashWithSalt s (PostscriptOptions fn sz out) =
