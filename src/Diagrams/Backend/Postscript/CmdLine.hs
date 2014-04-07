@@ -48,11 +48,11 @@
 --
 -- For a tutorial on command-line diagram creation see
 -- <http://projects.haskell.org/diagrams/doc/cmdline.html>.
--- 
+--
 -----------------------------------------------------------------------------
 
 module Diagrams.Backend.Postscript.CmdLine
-       ( 
+       (
          -- * General form of @main@
          -- $mainwith
 
@@ -156,7 +156,7 @@ chooseRender :: DiagramOpts -> (Options Postscript R2 -> IO ()) -> IO ()
 chooseRender opts renderer =
   case splitOn "." (opts^.output) of
     [""] -> putStrLn "No output file given."
-    ps |  last ps `elem` ["eps"] 
+    ps |  last ps `elem` ["eps"]
        || last ps `elem` ["ps"] -> do
            let outfmt = case last ps of
                           _     -> EPS
@@ -169,13 +169,13 @@ chooseRender opts renderer =
 
            renderer (PostscriptOptions (opts^.output) sizeSpec outfmt)
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
-       
+
 renderDias' :: [Diagram Postscript R2] -> Options Postscript R2 -> IO ()
-renderDias' ds o = renderDias Postscript o ds >> return ()
+renderDias' ds o = renderDias o ds >> return ()
 
 renderDia' :: Diagram Postscript R2 -> Options Postscript R2 -> IO ()
 renderDia' d o = renderDia Postscript o d >> return ()
-       
+
 
 -- | @multiMain@ is like 'defaultMain', except instead of a single
 --   diagram it takes a list of diagrams paired with names as input.
