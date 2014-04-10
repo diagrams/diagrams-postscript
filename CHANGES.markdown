@@ -1,3 +1,29 @@
+1.0.2.3 (10 April 2014)
+----------------------
+
+    - Allow `semigroups-0.13`
+
+1.0.2.2 (19 March 2014)
+----------------------
+
+  - Allow `lens-4.1`
+
+1.0.2.1 (18 March 2014)
+-----------------------
+
+- Allow `dlist-0.7`
+
+1.0.2 (8 March 2014)
+--------------------
+
+* **New features**
+
+  - Experimental support for raw CMYK colors.
+
+* **Dependency/version changes**
+
+  - Allow `diagrams-core-1.1` and `diagrams-lib-1.1`.
+
 1.0.1.2 (6 February 2014)
 -------------------------
 
