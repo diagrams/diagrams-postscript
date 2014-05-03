@@ -266,9 +266,9 @@ instance Renderable (Path R2) Postscript where
             renderC tr
 
 instance Renderable Text Postscript where
-  render _ (Text tr al str) = C $ do
+  render _ (Text tt _ al str) = C $ do
       C.save
-      postscriptTransf tr
+      postscriptTransf tt
       case al of
         BoxAlignedText xt yt -> C.showTextAlign xt yt str
         BaselineText         -> C.moveTo 0 0 >> C.showText str
