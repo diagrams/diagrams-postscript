@@ -266,7 +266,7 @@ instance Renderable (Path R2) Postscript where
             renderC tr
 
 instance Renderable Text Postscript where
-  render _ (Text tt tn al str) = C $ do
+  render _ (Text tt _  al str) = C $ do
       C.save
       postscriptTransf tt -- XXX Handle Local Text
       case al of
