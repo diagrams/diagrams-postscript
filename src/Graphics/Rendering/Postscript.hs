@@ -72,7 +72,8 @@ module Graphics.Rendering.Postscript
   , CMYK(..), cyan, magenta, yellow, blacK
   ) where
 
-import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..),colorToSRGBA)
+import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..),colorToSRGBA,SomeColor(..))
+import Diagrams.TwoD.Attributes (Texture(..))
 import Diagrams.TwoD.Path hiding (stroke, fillRule)
 import Control.Applicative
 import Control.Monad.Writer
@@ -358,13 +359,15 @@ colorPS :: Color c => c -> [Double]
 colorPS c = [ r, g, b ]
   where (r,g,b,_) = colorToSRGBA c
 
--- | Set the color of the stroke.
-strokeColor :: (Color c) => c -> Render ()
-strokeColor c = mkPSCall "setrgbcolor" (colorPS c)
+-- | Set the color of the stroke.  Ignore gradients.
+strokeColor :: Texture -> Render ()
+strokeColor (SC (SomeColor c)) = mkPSCall "setrgbcolor" (colorPS c)
+strokeColor _ = return ()
 
--- | Set the color of the fill.
-fillColor :: (Color c) => c -> Render ()
-fillColor c = mkPSCall "setrgbcolor" (colorPS c)
+-- | Set the color of the fill.  Ignore gradients.
+fillColor :: Texture -> Render ()
+fillColor (SC (SomeColor c)) = mkPSCall "setrgbcolor" (colorPS c)
+fillColor _ = return ()
 
 -- CMYK colors
 colorCMYK :: CMYK -> [Double]

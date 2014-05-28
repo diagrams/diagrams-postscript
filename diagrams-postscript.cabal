@@ -41,7 +41,7 @@ Library
                        data-default-class < 0.1,
                        split >= 0.1.2 && < 0.3,
                        monoid-extras >= 0.3 && < 0.4,
-                       semigroups >= 0.3.4 && < 0.14,
+                       semigroups >= 0.3.4 && < 0.15,
                        lens >= 3.8 && < 4.2,
                        containers >= 0.3 && < 0.6,
                        hashable >= 1.1 && < 1.3

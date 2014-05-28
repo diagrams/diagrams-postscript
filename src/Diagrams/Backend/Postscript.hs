@@ -52,7 +52,7 @@ import           Diagrams.Core.Compile
 import qualified Graphics.Rendering.Postscript as C
 import           Diagrams.Backend.Postscript.CMYK
 
-import           Diagrams.Prelude              hiding (view)
+import           Diagrams.Prelude              hiding (view, fillColor)
 
 import           Diagrams.TwoD.Adjust          (adjustDia2D)
 import           Diagrams.TwoD.Path            (Clip (Clip), getFillRule)
@@ -194,7 +194,7 @@ postscriptMiscStyle s =
     fFace    = assign (C.drawState . C.font . C.face) <$> getFont
     fSlant   = assign (C.drawState . C.font . C.slant) .fromFontSlant <$> getFontSlant
     fWeight  = assign (C.drawState . C.font . C.weight) . fromFontWeight <$> getFontWeight
-    fColor c = C.fillColor (getFillColor c)
+    fColor = C.fillColor . getFillTexture
     fColorCMYK c = C.fillColorCMYK (getFillColorCMYK c)
     lFillRule = assign (C.drawState . C.fillRule) . getFillRule
 
@@ -221,9 +221,9 @@ postscriptStyle s = sequence_ -- foldr (>>) (return ())
                             ]
   where handle :: (AttributeClass a) => (a -> C.Render ()) -> Maybe (C.Render ())
         handle f = f `fmap` getAttr s
-        lColor = C.strokeColor . getLineColor
+        lColor = C.strokeColor . getLineTexture
         lColorCMYK = C.strokeColorCMYK . getLineColorCMYK
-        fColor c = C.fillColor (getFillColor c) >> C.fillPreserve
+        fColor c = C.fillColor (getFillTexture c) >> C.fillPreserve
         fColorCMYK c = C.fillColorCMYK (getFillColorCMYK c) >> C.fillPreserve
         lWidth = C.lineWidth . fromOutput . getLineWidth
         lCap = C.lineCap . getLineCap
@@ -266,9 +266,9 @@ instance Renderable (Path R2) Postscript where
             renderC tr
 
 instance Renderable Text Postscript where
-  render _ (Text tr al str) = C $ do
+  render _ (Text tt tn al str) = C $ do
       C.save
-      postscriptTransf tr
+      postscriptTransf tt -- XXX Handle Local Text
       case al of
         BoxAlignedText xt yt -> C.showTextAlign xt yt str
         BaselineText         -> C.moveTo 0 0 >> C.showText str
