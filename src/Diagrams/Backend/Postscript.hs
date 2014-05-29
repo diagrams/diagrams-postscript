@@ -55,13 +55,14 @@ import           Diagrams.Backend.Postscript.CMYK
 import           Diagrams.Prelude              hiding (view, fillColor)
 
 import           Diagrams.TwoD.Adjust          (adjustDia2D)
+import           Diagrams.TwoD.Attributes
 import           Diagrams.TwoD.Path            (Clip (Clip), getFillRule)
 import           Diagrams.TwoD.Text
 import           Diagrams.TwoD.Types
 
 import           Control.Lens                  hiding (transform)
 import           Control.Monad                 (when)
-import           Data.Maybe                    (catMaybes)
+import           Data.Maybe                    (catMaybes, fromMaybe)
 
 import qualified Data.Foldable                 as F
 import           Data.Hashable                 (Hashable (..))
@@ -182,6 +183,7 @@ postscriptMiscStyle s =
                 , handle fSlant
                 , handle fWeight
                 , handle fSize
+                , handle fLocal
                 , handle fColor
                 , handle fColorCMYK
                 , handle lFillRule
@@ -191,6 +193,7 @@ postscriptMiscStyle s =
     handle f = f `fmap` getAttr s
     clip     = mapM_ (\p -> renderC p >> C.clip) . op Clip
     fSize    = assign (C.drawState . C.font . C.size) <$> (fromOutput . getFontSize)
+    fLocal = assign (C.drawState . C.font . C.isLocal) <$> getFontSizeIsLocal
     fFace    = assign (C.drawState . C.font . C.face) <$> getFont
     fSlant   = assign (C.drawState . C.font . C.slant) .fromFontSlant <$> getFontSlant
     fWeight  = assign (C.drawState . C.font . C.weight) . fromFontWeight <$> getFontWeight
@@ -267,7 +270,7 @@ instance Renderable (Path R2) Postscript where
 
 instance Renderable Text Postscript where
   render _ (Text tt tn al str) = C $ do
-      isLocal <- fromMaybe True <$> getStyleAttrib getFontSizeIsLocal
+      isLocal <- use (C.drawState . C.font . C.isLocal)
       let tr = if isLocal then tt else tn
       C.save
       postscriptTransf tr

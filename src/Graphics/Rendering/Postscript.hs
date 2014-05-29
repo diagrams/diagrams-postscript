@@ -65,7 +65,7 @@ module Graphics.Rendering.Postscript
 
   , FontSlant(..)
   , FontWeight(..)
-  , face, slant, weight, size
+  , face, slant, weight, size, isLocal
 
   , fillRule, ignoreFill, font
 
@@ -110,12 +110,13 @@ data PostscriptFont = PostscriptFont
     , _slant  :: FontSlant
     , _weight :: FontWeight
     , _size   :: Double
+    , _isLocal :: Bool
     } deriving (Eq, Show)
 
 makeLenses '' PostscriptFont
 
 defaultFont :: PostscriptFont
-defaultFont = PostscriptFont "Helvetica" FontSlantNormal FontWeightNormal 1
+defaultFont = PostscriptFont "Helvetica" FontSlantNormal FontWeightNormal 1 True
 
 -- Here we want to mirror the state of side-effecting calls
 -- that we have emitted into the postscript file (at least
