@@ -55,14 +55,13 @@ import           Diagrams.Backend.Postscript.CMYK
 import           Diagrams.Prelude              hiding (view, fillColor)
 
 import           Diagrams.TwoD.Adjust          (adjustDia2D)
-import           Diagrams.TwoD.Attributes
 import           Diagrams.TwoD.Path            (Clip (Clip), getFillRule)
 import           Diagrams.TwoD.Text
 import           Diagrams.TwoD.Types
 
 import           Control.Lens                  hiding (transform)
 import           Control.Monad                 (when)
-import           Data.Maybe                    (catMaybes, fromMaybe)
+import           Data.Maybe                    (catMaybes)
 
 import qualified Data.Foldable                 as F
 import           Data.Hashable                 (Hashable (..))
