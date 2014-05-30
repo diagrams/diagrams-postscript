@@ -3,7 +3,7 @@
 
     - Changes to reflect `Measure` refactoring.
     - Allow `diagrams-core-1.2` and `diagrams-lib-1.2`
-    - Allow `semigroups-0.14`
+    - Allow `semigroups-0.15`
     
 1.0.2.4 (10 April 2014)
 ----------------------
