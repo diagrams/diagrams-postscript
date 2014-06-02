@@ -32,7 +32,7 @@ Library
                        Graphics.Rendering.Postscript
   Hs-source-dirs:      src
   Build-depends:       base >= 4.2 && < 4.8,
-                       mtl >= 2.0 && < 2.2,
+                       mtl >= 2.0 && < 2.3,
                        filepath,
                        dlist >= 0.5 && < 0.8,
                        vector-space >= 0.7.7 && < 0.9,
@@ -42,7 +42,7 @@ Library
                        split >= 0.1.2 && < 0.3,
                        monoid-extras >= 0.3 && < 0.4,
                        semigroups >= 0.3.4 && < 0.16,
-                       lens >= 3.8 && < 4.2,
+                       lens >= 3.8 && < 4.3,
                        containers >= 0.3 && < 0.6,
                        hashable >= 1.1 && < 1.3
   if impl(ghc < 7.6)
