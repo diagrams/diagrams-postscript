@@ -1,4 +1,4 @@
-[![Build Status](https://secure.travis-ci.org/diagrams/diagrams-postscript.png)](http://travis-ci.org/diagrams/diagrams-postscript)
+[![Build Status](https://secure.travis-ci.org/diagrams/diagrams-postscript.png?branch=master)](http://travis-ci.org/diagrams/diagrams-postscript)
 
 _diagrams-postscript_ is a rendering backend for [diagrams], a powerful,
 flexible, declarative domain-specific language for creating vector graphics,
