@@ -1,5 +1,5 @@
 Name:                diagrams-postscript
-Version:             1.1
+Version:             1.1.0.1
 Synopsis:            Postscript backend for diagrams drawing EDSL
 Description:         This package provides a modular backend for rendering
                      diagrams created with the diagrams EDSL using Postscript.
@@ -20,7 +20,7 @@ Bug-reports:         http://github.com/diagrams/diagrams-postscript/issues
 Category:            Graphics
 Build-type:          Simple
 Cabal-version:       >=1.10
-Tested-with:         GHC == 7.4.2, GHC == 7.6.3, GHC == 7.8.1
+Tested-with:         GHC == 7.4.2, GHC == 7.6.3, GHC == 7.8.3
 Source-repository head
   type:     git
   location: https://github.com/diagrams/diagrams-postscript.git
