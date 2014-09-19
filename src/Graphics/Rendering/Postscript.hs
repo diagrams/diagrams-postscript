@@ -85,7 +85,7 @@ import Data.Char(ord,isPrint)
 import Numeric(showIntAtBase)
 import System.IO (openFile, hPutStr, IOMode(..), hClose)
 
-data CMYK = CMYK 
+data CMYK = CMYK
     { _cyan    :: Double
     , _magenta :: Double
     , _yellow  :: Double
@@ -361,12 +361,12 @@ colorPS c = [ r, g, b ]
   where (r,g,b,_) = colorToSRGBA c
 
 -- | Set the color of the stroke.  Ignore gradients.
-strokeColor :: Texture -> Render ()
+strokeColor :: Texture n -> Render ()
 strokeColor (SC (SomeColor c)) = mkPSCall "setrgbcolor" (colorPS c)
 strokeColor _ = return ()
 
 -- | Set the color of the fill.  Ignore gradients.
-fillColor :: Texture -> Render ()
+fillColor :: Texture n -> Render ()
 fillColor (SC (SomeColor c)) = mkPSCall "setrgbcolor" (colorPS c)
 fillColor _ = return ()
 
