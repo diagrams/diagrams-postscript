@@ -64,7 +64,7 @@ getLineColorCMYK (LineColorCMYK (Last c)) = c
 mkLineColorCMYK :: CMYK -> LineColorCMYK
 mkLineColorCMYK = LineColorCMYK . Last
 
-styleLineColorCMYK :: Setter' (Style v) CMYK
+styleLineColorCMYK :: Setter' (Style v Double ) CMYK
 styleLineColorCMYK = sets modifyLineColorCMYK
   where
     modifyLineColorCMYK f s
@@ -102,7 +102,7 @@ instance Default FillColorCMYK where
 mkFillColorCMYK :: CMYK -> FillColorCMYK
 mkFillColorCMYK = FillColorCMYK . Commit . Last
 
-styleFillColorCMYK :: Setter' (Style v) CMYK
+styleFillColorCMYK :: Setter' (Style v Double) CMYK
 styleFillColorCMYK = sets modifyFillColorCMYK
   where
     modifyFillColorCMYK f s
@@ -128,5 +128,3 @@ getFillColorCMYK (FillColorCMYK c) = getLast . getRecommend $ c
 -- | A synonym for 'fillColorCMYK'
 fcCMYK :: HasStyle a => CMYK -> a -> a
 fcCMYK = fillColorCMYK
-
-

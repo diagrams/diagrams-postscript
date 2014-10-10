@@ -92,7 +92,7 @@ import Data.List.Split
 -- and color arguments.
 --
 -- > ... definitions ...
--- > f :: Int -> Colour Double -> Diagram Postscript R2
+-- > f :: Int -> Colour Double -> Diagram Postscript V2 Double
 -- > f i c = ...
 -- >
 -- > main = mainWith f
@@ -144,15 +144,15 @@ import Data.List.Split
 -- $ ./MyDiagram -o image.eps -w 400
 -- @
 
-defaultMain :: Diagram Postscript R2 -> IO ()
+defaultMain :: Diagram Postscript V2 Double -> IO ()
 defaultMain = mainWith
 
-instance Mainable (Diagram Postscript R2) where
-    type MainOpts (Diagram Postscript R2) = DiagramOpts
+instance Mainable (Diagram Postscript V2 Double) where
+    type MainOpts (Diagram Postscript V2 Double) = DiagramOpts
 
     mainRender opts d = chooseRender opts (renderDia' d)
 
-chooseRender :: DiagramOpts -> (Options Postscript R2 -> IO ()) -> IO ()
+chooseRender :: DiagramOpts -> (Options Postscript V2 Double -> IO ()) -> IO ()
 chooseRender opts renderer =
   case splitOn "." (opts^.output) of
     [""] -> putStrLn "No output file given."
@@ -170,10 +170,10 @@ chooseRender opts renderer =
            renderer (PostscriptOptions (opts^.output) sizeSpec outfmt)
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
 
-renderDias' :: [Diagram Postscript R2] -> Options Postscript R2 -> IO ()
+renderDias' :: [Diagram Postscript V2 Double] -> Options Postscript V2 Double -> IO ()
 renderDias' ds o = renderDias o ds >> return ()
 
-renderDia' :: Diagram Postscript R2 -> Options Postscript R2 -> IO ()
+renderDia' :: Diagram Postscript V2 Double -> Options Postscript V2 Double -> IO ()
 renderDia' d o = renderDia Postscript o d >> return ()
 
 
@@ -196,11 +196,11 @@ renderDia' d o = renderDia Postscript o d >> return ()
 -- $ ./MultiTest --selection bar -o Bar.eps -w 200
 -- @
 
-multiMain :: [(String, Diagram Postscript R2)] -> IO ()
+multiMain :: [(String, Diagram Postscript V2 Double)] -> IO ()
 multiMain = mainWith
 
-instance Mainable [(String,Diagram Postscript R2)] where
-    type MainOpts [(String,Diagram Postscript R2)] = (DiagramOpts, DiagramMultiOpts)
+instance Mainable [(String,Diagram Postscript V2 Double)] where
+    type MainOpts [(String,Diagram Postscript V2 Double)] = (DiagramOpts, DiagramMultiOpts)
 
     mainRender = defaultMultiMainRender
 
@@ -217,11 +217,11 @@ instance Mainable [(String,Diagram Postscript R2)] where
 -- $ ./MultiPage -o Pages.ps -w 200
 -- @
 
-pagesMain :: [Diagram Postscript R2] -> IO ()
+pagesMain :: [Diagram Postscript V2 Double] -> IO ()
 pagesMain = mainWith
 
-instance Mainable [Diagram Postscript R2] where
-    type MainOpts [Diagram Postscript R2] = DiagramOpts
+instance Mainable [Diagram Postscript V2 Double] where
+    type MainOpts [Diagram Postscript V2 Double] = DiagramOpts
 
     mainRender opts ds = chooseRender opts (renderDias' ds)
 
@@ -241,10 +241,10 @@ instance Mainable [Diagram Postscript R2] where
 --
 -- The @--fpu@ option can be used to control how many frames will be
 -- output for each second (unit time) of animation.
-animMain :: Animation Postscript R2 -> IO ()
+animMain :: Animation Postscript V2 Double -> IO ()
 animMain = mainWith
 
-instance Mainable (Animation Postscript R2) where
-    type MainOpts (Animation Postscript R2) = (DiagramOpts, DiagramAnimOpts)
+instance Mainable (Animation Postscript V2 Double) where
+    type MainOpts (Animation Postscript V2 Double) = (DiagramOpts, DiagramAnimOpts)
 
-    mainRender = defaultAnimMainRender output
+    mainRender = defaultAnimMainRender mainRender output
