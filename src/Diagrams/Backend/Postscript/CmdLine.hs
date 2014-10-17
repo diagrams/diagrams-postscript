@@ -92,7 +92,7 @@ import Data.List.Split
 -- and color arguments.
 --
 -- > ... definitions ...
--- > f :: Int -> Colour Double -> Diagram Postscript V2 Double
+-- > f :: Int -> Colour Double -> QDiagram Postscript V2 Double Any
 -- > f i c = ...
 -- >
 -- > main = mainWith f
@@ -144,11 +144,11 @@ import Data.List.Split
 -- $ ./MyDiagram -o image.eps -w 400
 -- @
 
-defaultMain :: Diagram Postscript V2 Double -> IO ()
+defaultMain :: QDiagram Postscript V2 Double Any -> IO ()
 defaultMain = mainWith
 
-instance Mainable (Diagram Postscript V2 Double) where
-    type MainOpts (Diagram Postscript V2 Double) = DiagramOpts
+instance Mainable (QDiagram Postscript V2 Double Any) where
+    type MainOpts (QDiagram Postscript V2 Double Any) = DiagramOpts
 
     mainRender opts d = chooseRender opts (renderDia' d)
 
@@ -170,10 +170,10 @@ chooseRender opts renderer =
            renderer (PostscriptOptions (opts^.output) sizeSpec outfmt)
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
 
-renderDias' :: [Diagram Postscript V2 Double] -> Options Postscript V2 Double -> IO ()
+renderDias' :: [QDiagram Postscript V2 Double Any] -> Options Postscript V2 Double -> IO ()
 renderDias' ds o = renderDias o ds >> return ()
 
-renderDia' :: Diagram Postscript V2 Double -> Options Postscript V2 Double -> IO ()
+renderDia' :: QDiagram Postscript V2 Double Any -> Options Postscript V2 Double -> IO ()
 renderDia' d o = renderDia Postscript o d >> return ()
 
 
@@ -196,11 +196,11 @@ renderDia' d o = renderDia Postscript o d >> return ()
 -- $ ./MultiTest --selection bar -o Bar.eps -w 200
 -- @
 
-multiMain :: [(String, Diagram Postscript V2 Double)] -> IO ()
+multiMain :: [(String, QDiagram Postscript V2 Double Any)] -> IO ()
 multiMain = mainWith
 
-instance Mainable [(String,Diagram Postscript V2 Double)] where
-    type MainOpts [(String,Diagram Postscript V2 Double)] = (DiagramOpts, DiagramMultiOpts)
+instance Mainable [(String,QDiagram Postscript V2 Double Any)] where
+    type MainOpts [(String,QDiagram Postscript V2 Double Any)] = (DiagramOpts, DiagramMultiOpts)
 
     mainRender = defaultMultiMainRender
 
@@ -217,11 +217,11 @@ instance Mainable [(String,Diagram Postscript V2 Double)] where
 -- $ ./MultiPage -o Pages.ps -w 200
 -- @
 
-pagesMain :: [Diagram Postscript V2 Double] -> IO ()
+pagesMain :: [QDiagram Postscript V2 Double Any] -> IO ()
 pagesMain = mainWith
 
-instance Mainable [Diagram Postscript V2 Double] where
-    type MainOpts [Diagram Postscript V2 Double] = DiagramOpts
+instance Mainable [QDiagram Postscript V2 Double Any] where
+    type MainOpts [QDiagram Postscript V2 Double Any] = DiagramOpts
 
     mainRender opts ds = chooseRender opts (renderDias' ds)
 
