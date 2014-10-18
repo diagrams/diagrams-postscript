@@ -76,6 +76,9 @@ data Postscript = Postscript
 
 type B = Postscript
 
+type instance V Postscript = V2
+type instance N Postscript = Double
+
 -- | Postscript only supports EPS style output at the moment.  Future formats would each
 --   have their own associated properties that affect the output.
 data OutputFormat = EPS -- ^ Encapsulated Postscript output.
