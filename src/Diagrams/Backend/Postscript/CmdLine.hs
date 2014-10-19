@@ -72,13 +72,11 @@ module Diagrams.Backend.Postscript.CmdLine
 
       ) where
 
-import Diagrams.Prelude hiding (width, height, interval, option, value, (<>))
+import Diagrams.Prelude hiding (width, height, interval, option, value, (<>), output)
 import Diagrams.Backend.Postscript
 import Diagrams.Backend.CmdLine
 
 import Control.Lens
-
-import Prelude
 
 import Data.List.Split
 
@@ -158,14 +156,8 @@ chooseRender opts renderer =
     [""] -> putStrLn "No output file given."
     ps |  last ps `elem` ["eps"]
        || last ps `elem` ["ps"] -> do
-           let outfmt = case last ps of
-                          _     -> EPS
-               sizeSpec = case (opts^.width, opts^.height) of
-                            (Nothing, Nothing) -> Absolute
-                            (Just w, Nothing)  -> Width (fromIntegral w)
-                            (Nothing, Just h)  -> Height (fromIntegral h)
-                            (Just w, Just h)   -> Dims (fromIntegral w)
-                                                       (fromIntegral h)
+           let outfmt   = EPS
+               sizeSpec = fromIntegral <$> mkSizeSpec2D (opts^.width) (opts^.height)
 
            renderer (PostscriptOptions (opts^.output) sizeSpec outfmt)
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
