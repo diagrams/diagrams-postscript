@@ -20,7 +20,7 @@ grid = map (\y -> map (:+ y) side_x) side_y
 
 image = map (map (to_circle . pixel . critical_orbit)) grid
 
-d :: Diagram Postscript R2
+d :: Diagram Postscript
 d = vcat . map hcat $ image
 
 main = defaultMain d
@@ -33,5 +33,5 @@ max_iter = 32
 minBox = centerXY (strutX w <> strutY w)
   where w = 2 * sqrt max_iter
 
-to_circle :: Integral a => a -> Diagram Postscript R2
-to_circle = (<> minBox) . centerXY . lw 0 . fc blue . circle . sqrt . fromIntegral
+to_circle :: Integral a => a -> Diagram Postscript
+to_circle = (<> minBox) . centerXY . lwG 0 . fc blue . circle . sqrt . fromIntegral

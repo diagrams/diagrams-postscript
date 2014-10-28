@@ -21,7 +21,7 @@
 -- To build diagrams for Postscript rendering use the @Postscript@
 -- type in the diagram type construction
 --
--- > d :: Diagram Postscript V2
+-- > d :: Diagram Postscript
 -- > d = ...
 --
 -- and render giving the @Postscript@ token
@@ -286,7 +286,7 @@ instance Renderable (Text Double) Postscript where
 -- This module defines
 --
 -- > data family Options Postscript V2 Double = PostscriptOptions
--- >           { psfileName     :: String       -- ^ the name of the file you want generated
--- >           , psSizeSpec     :: SizeSpec2D   -- ^ the requested size of the output
--- >           , psOutputFormat :: OutputFormat -- ^ the output format and associated options
+-- >           { psfileName     :: String            -- ^ the name of the file you want generated
+-- >           , psSizeSpec     :: SizeSpec2D Double -- ^ the requested size of the output
+-- >           , psOutputFormat :: OutputFormat      -- ^ the output format and associated options
 -- >           }
