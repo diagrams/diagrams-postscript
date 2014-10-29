@@ -65,7 +65,6 @@ import           Data.Maybe                    (catMaybes)
 
 import qualified Data.Foldable                 as F
 import           Data.Hashable                 (Hashable (..))
-import qualified Data.List.NonEmpty            as N
 import           Data.Tree
 import           Data.Typeable
 import           GHC.Generics                  (Generic)
@@ -96,19 +95,19 @@ instance Backend Postscript V2 Double where
   type Result  Postscript V2 Double = IO ()
   data Options Postscript V2 Double = PostscriptOptions
           { _psfileName     :: String       -- ^ the name of the file you want generated
-          , _psSizeSpec     :: SizeSpec2D Double   -- ^ the requested size of the output
+          , _psSizeSpec     :: SizeSpec V2 Double   -- ^ the requested size of the output
           , _psOutputFormat :: OutputFormat -- ^ the output format and associated options
           }
     deriving (Show)
 
   renderRTree _ opts t =
     let surfaceF surface = C.renderWith surface r
-        (w,h) = sizeFromSpec (opts^.psSizeSpec)
+        V2 w h = specToSize 100 (opts^.psSizeSpec)
         r = runC . toRender $ t
     in case opts^.psOutputFormat of
          EPS -> C.withEPSSurface (opts^.psfileName) (round w) (round h) surfaceF
 
-  adjustDia c opts d = adjustDia2D psSizeSpec c opts d
+  adjustDia = adjustDia2D psSizeSpec
 
 runC :: Render Postscript V2 Double -> C.Render ()
 runC (C r) = r
@@ -130,18 +129,11 @@ instance Hashable (Options Postscript V2 Double) where
       `hashWithSalt` sz
       `hashWithSalt` out
 
-sizeFromSpec :: SizeSpec2D Double -> (Double, Double)
-sizeFromSpec sz = case sz of
-   Width w'   -> (w',w')
-   Height h'  -> (h',h')
-   Dims w' h' -> (w',h')
-   Absolute   -> (100,100)
-
 psfileName :: Lens' (Options Postscript V2 Double) String
 psfileName = lens (\(PostscriptOptions {_psfileName = f}) -> f)
                      (\o f -> o {_psfileName = f})
 
-psSizeSpec :: Lens' (Options Postscript V2 Double) (SizeSpec2D Double)
+psSizeSpec :: Lens' (Options Postscript V2 Double) (SizeSpec V2 Double)
 psSizeSpec = lens (\(PostscriptOptions {_psSizeSpec = s}) -> s)
                      (\o s -> o {_psSizeSpec = s})
 
@@ -154,23 +146,13 @@ renderDias :: (Semigroup m, Monoid m) =>
 renderDias opts ds = case opts^.psOutputFormat of
   EPS -> C.withEPSSurface (opts^.psfileName) (round w) (round h) surfaceF
     where
-      surfaceF surface = C.renderPagesWith surface (map (\(C r) -> r) rs)
-      (w,h) = sizeFromSpec (cSize^.psSizeSpec)
-
+      surfaceF surface  = C.renderPagesWith surface (map (\(C r) -> r) rs)
       dropMid (x, _, z) = (x,z)
-
       optsdss = map (dropMid . adjustDia Postscript opts) ds
-      cSize = (combineSizes $ map fst optsdss)
-      g2o = scaling (sqrt (w * h))
-      rs = map (toRender . toRTree g2o . snd) optsdss
-
-      combineSizes [] = PostscriptOptions "" (Dims 100 100) EPS
-      combineSizes (o:os) =
-        o { _psSizeSpec = uncurry Dims . fromMaxPair . sconcat $ f o N.:| fmap f os }
-        where
-          f = mkMax . sizeFromSpec . _psSizeSpec
-          fromMaxPair (Max x, Max y) = (x,y)
-          mkMax (x,y) = (Max x, Max y)
+      g2o     = scaling (sqrt (w * h))
+      rs      = map (toRender . toRTree g2o . snd) optsdss
+      sizes   = map (specToSize 1 . view psSizeSpec . fst) optsdss
+      V2 w h  = foldBy (liftA2 max) zero sizes
 
 renderC :: (Renderable a Postscript, V a ~ V2, N a ~ Double) => a -> C.Render ()
 renderC a = case render Postscript a of C r -> r
@@ -185,7 +167,7 @@ postscriptMiscStyle s =
                 , handle fSlant
                 , handle fWeight
                 , handle fSize
-                , handle fLocal
+                -- , handle fLocal
                 , handle fColor
                 , handle fColorCMYK
                 , handle lFillRule
@@ -194,9 +176,7 @@ postscriptMiscStyle s =
     handle :: AttributeClass a => (a -> C.Render ()) -> Maybe (C.Render ())
     handle f = f `fmap` getAttr s
     clip     = mapM_ (\p -> renderC p >> C.clip) . op Clip
-    fSize    = assign (C.drawState . C.font . C.size) <$> (fromOutput . getFontSize)
-    fLocal :: FontSize Double -> C.Render ()
-    fLocal = assign (C.drawState . C.font . C.isLocal) <$> getFontSizeIsLocal
+    fSize    = assign (C.drawState . C.font . C.size) <$> getFontSize
     fFace    = assign (C.drawState . C.font . C.face) <$> getFont
     fSlant   = assign (C.drawState . C.font . C.slant) .fromFontSlant <$> getFontSlant
     fWeight  = assign (C.drawState . C.font . C.weight) . fromFontWeight <$> getFontWeight
@@ -215,7 +195,7 @@ fromFontWeight FontWeightNormal = C.FontWeightNormal
 fromFontWeight FontWeightBold   = C.FontWeightBold
 
 postscriptStyle :: Style v Double -> C.Render ()
-postscriptStyle s = sequence_ -- foldr (>>) (return ())
+postscriptStyle s = sequence_
               . catMaybes $ [ handle fColor
                             , handle fColorCMYK
                             , handle lColor
@@ -234,12 +214,11 @@ postscriptStyle s = sequence_ -- foldr (>>) (return ())
         fColor :: FillTexture Double -> C.Render ()
         fColor c = C.fillColor (getFillTexture c) >> C.fillPreserve
         fColorCMYK c = C.fillColorCMYK (getFillColorCMYK c) >> C.fillPreserve
-        lWidth = C.lineWidth . fromOutput . getLineWidth
+        lWidth = C.lineWidth . getLineWidth
         lCap = C.lineCap . getLineCap
         lJoin = C.lineJoin . getLineJoin
         lMiter = C.miterLimit . getLineMiterLimit
-        lDashing (getDashing -> Dashing ds offs) =
-          C.setDash (map fromOutput ds) (fromOutput offs)
+        lDashing (getDashing -> Dashing ds offs) = C.setDash ds offs
 
 postscriptTransf :: Transformation V2 Double -> C.Render ()
 postscriptTransf t = C.transform a1 a2 b1 b2 c1 c2
@@ -275,9 +254,7 @@ instance Renderable (Path V2 Double) Postscript where
             renderC tr
 
 instance Renderable (Text Double) Postscript where
-  render _ (Text tt tn al str) = C $ do
-      isLocal <- use (C.drawState . C.font . C.isLocal)
-      let tr = if isLocal then tt else tn
+  render _ (Text tr al str) = C $ do
       C.save
       postscriptTransf tr
       case al of
