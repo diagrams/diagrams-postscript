@@ -146,28 +146,13 @@ renderDias :: (Semigroup m, Monoid m) =>
 renderDias opts ds = case opts^.psOutputFormat of
   EPS -> C.withEPSSurface (opts^.psfileName) (round w) (round h) surfaceF
     where
-      surfaceF surface = C.renderPagesWith surface (map (\(C r) -> r) rs)
-      -- (w,h) = sizeFromSpec (cSize^.psSizeSpec)
-
+      surfaceF surface  = C.renderPagesWith surface (map (\(C r) -> r) rs)
       dropMid (x, _, z) = (x,z)
-
       optsdss = map (dropMid . adjustDia Postscript opts) ds
-      -- cSize = (combineSizes $ map fst optsdss)
-      g2o = scaling (sqrt (w * h))
-      rs = map (toRender . toRTree g2o . snd) optsdss
-
-      
-      sizes = map (specToSize 1 . view psSizeSpec . fst) optsdss
-
-      V2 w h = foldBy (liftA2 max) zero sizes
-
-      -- combineSizes []     = PostscriptOptions "" (dims2D 100 100) EPS
-      -- combineSizes (o:os) =
-      --   o { _psSizeSpec = uncurry Dims . fromMaxPair . sconcat $ f o N.:| fmap f os }
-      --   where
-      --     f = mkMax . sizeFromSpec . _psSizeSpec
-      --     fromMaxPair (Max x, Max y) = (x,y)
-      --     mkMax (x,y) = (Max x, Max y)
+      g2o     = scaling (sqrt (w * h))
+      rs      = map (toRender . toRTree g2o . snd) optsdss
+      sizes   = map (specToSize 1 . view psSizeSpec . fst) optsdss
+      V2 w h  = foldBy (liftA2 max) zero sizes
 
 renderC :: (Renderable a Postscript, V a ~ V2, N a ~ Double) => a -> C.Render ()
 renderC a = case render Postscript a of C r -> r
@@ -192,8 +177,6 @@ postscriptMiscStyle s =
     handle f = f `fmap` getAttr s
     clip     = mapM_ (\p -> renderC p >> C.clip) . op Clip
     fSize    = assign (C.drawState . C.font . C.size) <$> getFontSize
-    -- fLocal :: FontSize Double -> C.Render ()
-    -- fLocal = assign (C.drawState . C.font . C.isLocal) <$> getFontSizeIsLocal
     fFace    = assign (C.drawState . C.font . C.face) <$> getFont
     fSlant   = assign (C.drawState . C.font . C.slant) .fromFontSlant <$> getFontSlant
     fWeight  = assign (C.drawState . C.font . C.weight) . fromFontWeight <$> getFontWeight
@@ -212,7 +195,7 @@ fromFontWeight FontWeightNormal = C.FontWeightNormal
 fromFontWeight FontWeightBold   = C.FontWeightBold
 
 postscriptStyle :: Style v Double -> C.Render ()
-postscriptStyle s = sequence_ -- foldr (>>) (return ())
+postscriptStyle s = sequence_
               . catMaybes $ [ handle fColor
                             , handle fColorCMYK
                             , handle lColor
