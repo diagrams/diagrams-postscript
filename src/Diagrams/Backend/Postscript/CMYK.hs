@@ -27,7 +27,7 @@ module Diagrams.Backend.Postscript.CMYK (
 
   ) where
 
-import           Control.Lens          (Setter', sets)
+import           Control.Lens          (Setter', sets, (.~))
 import           Data.Default.Class
 import           Data.Maybe            (fromMaybe)
 import           Data.Monoid.Recommend
@@ -35,7 +35,7 @@ import           Data.Semigroup
 import           Data.Typeable
 
 import           Diagrams.Core
-import           Diagrams.Core.Style   (setAttr)
+import           Diagrams.Core.Style   (atAttr)
 import           Graphics.Rendering.Postscript(CMYK(..))
 
 ------------------------------------------------------------
@@ -63,6 +63,9 @@ getLineColorCMYK (LineColorCMYK (Last c)) = c
 
 mkLineColorCMYK :: CMYK -> LineColorCMYK
 mkLineColorCMYK = LineColorCMYK . Last
+
+setAttr :: AttributeClass a => a -> Style v n -> Style v n
+setAttr a = atAttr .~ Just a
 
 styleLineColorCMYK :: Setter' (Style v Double ) CMYK
 styleLineColorCMYK = sets modifyLineColorCMYK
