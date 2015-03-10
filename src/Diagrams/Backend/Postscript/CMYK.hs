@@ -35,7 +35,6 @@ import           Data.Semigroup
 import           Data.Typeable
 
 import           Diagrams.Core
-import           Diagrams.Core.Style   (atAttr)
 import           Graphics.Rendering.Postscript(CMYK(..))
 
 ------------------------------------------------------------
