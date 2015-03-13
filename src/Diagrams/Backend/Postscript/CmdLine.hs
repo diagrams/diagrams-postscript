@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies      #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -----------------------------------------------------------------------------
 -- |
@@ -72,11 +72,12 @@ module Diagrams.Backend.Postscript.CmdLine
 
       ) where
 
-import Diagrams.Prelude hiding (width, height, interval, option, value, (<>), output)
-import Diagrams.Backend.Postscript
-import Diagrams.Backend.CmdLine
+import           Diagrams.Backend.CmdLine
+import           Diagrams.Backend.Postscript
+import           Diagrams.Prelude            hiding (height, interval, option,
+                                              output, value, width, (<>))
 
-import Data.List.Split
+import           Data.List.Split
 
 -- $mainwith
 -- The 'mainWith' method unifies all of the other forms of @main@ and is
