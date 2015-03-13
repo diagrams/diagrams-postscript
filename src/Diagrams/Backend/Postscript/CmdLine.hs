@@ -76,8 +76,6 @@ import Diagrams.Prelude hiding (width, height, interval, option, value, (<>), ou
 import Diagrams.Backend.Postscript
 import Diagrams.Backend.CmdLine
 
-import Control.Lens
-
 import Data.List.Split
 
 -- $mainwith
