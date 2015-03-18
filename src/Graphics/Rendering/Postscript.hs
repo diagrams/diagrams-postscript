@@ -74,20 +74,23 @@ module Graphics.Rendering.Postscript
   , CMYK(..), cyan, magenta, yellow, blacK
   ) where
 
-import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..),colorToSRGBA,SomeColor(..))
-import Diagrams.TwoD.Attributes (Texture(..))
-import Diagrams.TwoD.Path hiding (stroke, fillRule)
-import Control.Monad.Writer
-import Control.Monad.State
-import Control.Lens (makeLenses, use, (%=), (.=))
-import Data.List(intersperse)
-import Data.DList(DList,toList,fromList)
-import Data.Char(ord,isPrint)
-import Numeric(showIntAtBase)
-import System.IO (openFile, hPutStr, IOMode(..), hClose)
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative
 #endif
+import           Control.Lens             (Lens', makeLenses, use, (%=), (.=))
+import           Control.Monad.State
+import           Control.Monad.Writer
+import           Data.Char                (isPrint, ord)
+import           Data.DList               (DList, fromList, toList)
+import           Data.List                (intersperse)
+import           Diagrams.Attributes      (Color (..), LineCap (..),
+                                           LineJoin (..), SomeColor (..),
+                                           colorToSRGBA)
+import           Diagrams.TwoD.Attributes (Texture (..))
+import           Diagrams.TwoD.Path       hiding (fillRule, stroke)
+import           Numeric                  (showIntAtBase)
+import           System.IO                (IOMode (..), hClose, hPutStr,
+                                           openFile)
 
 data CMYK = CMYK
     { _cyan    :: Double
@@ -110,10 +113,10 @@ data FontWeight = FontWeightNormal
             deriving (Show, Eq)
 
 data PostscriptFont = PostscriptFont
-    { _face   :: String
-    , _slant  :: FontSlant
-    , _weight :: FontWeight
-    , _size   :: Double
+    { _face    :: String
+    , _slant   :: FontSlant
+    , _weight  :: FontWeight
+    , _size    :: Double
     , _isLocal :: Bool
     } deriving (Eq, Show)
 
