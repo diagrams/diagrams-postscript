@@ -1,4 +1,6 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
 -----------------------------------------------------------------------------
 -- |
@@ -75,7 +77,6 @@ module Graphics.Rendering.Postscript
 import Diagrams.Attributes(Color(..),LineCap(..),LineJoin(..),colorToSRGBA,SomeColor(..))
 import Diagrams.TwoD.Attributes (Texture(..))
 import Diagrams.TwoD.Path hiding (stroke, fillRule)
-import Control.Applicative
 import Control.Monad.Writer
 import Control.Monad.State
 import Control.Lens (makeLenses, use, (%=), (.=))
@@ -84,6 +85,9 @@ import Data.DList(DList,toList,fromList)
 import Data.Char(ord,isPrint)
 import Numeric(showIntAtBase)
 import System.IO (openFile, hPutStr, IOMode(..), hClose)
+#if __GLASGOW_HASKELL__ < 710
+import           Control.Applicative
+#endif
 
 data CMYK = CMYK
     { _cyan    :: Double
@@ -489,6 +493,7 @@ renderFont = do
     s <- show <$> f size
     renderPS $ concat ["/", n, " ", s, " selectfont"]
   where
+    f :: Lens' PostscriptFont a -> Render a
     f x = use $ drawState . font . x
 
 -- This is a little hacky.  I'm not sure there are good options.
