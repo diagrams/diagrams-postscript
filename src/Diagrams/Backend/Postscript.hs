@@ -215,7 +215,7 @@ postscriptStyle s =
   where
     handle :: AttributeClass a => (a -> RenderM ()) -> Maybe (RenderM ())
     handle f = f `fmap` getAttr s
-    clip     = mapM_ (\p -> renderC p >> liftC C.clip) . op Clip
+    clip     = mapM_ (\p -> postscriptPath p >> liftC C.clip) . op Clip
     lFillRule = liftC . assign (C.drawState . C.fillRule) . getFillRule
     lWidth = liftC . C.lineWidth . getLineWidth
     lCap = liftC . C.lineCap . getLineCap
