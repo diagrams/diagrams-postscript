@@ -69,7 +69,7 @@ module Graphics.Rendering.Postscript
   , FontWeight(..)
   , face, slant, weight, size, isLocal
 
-  , fillRule, ignoreFill, font
+  , fillRule, font
 
   , CMYK(..), cyan, magenta, yellow, blacK
   ) where
@@ -131,14 +131,13 @@ defaultFont = PostscriptFont "Helvetica" FontSlantNormal FontWeightNormal 1 True
 data DrawState = DS
                  { _fillRule   :: FillRule
                  , _font       :: PostscriptFont
-                 , _ignoreFill :: Bool
                  } deriving (Eq)
 
 makeLenses ''DrawState
 
 -- This reflects the defaults from the standard.
 emptyDS :: DrawState
-emptyDS = DS Winding defaultFont False
+emptyDS = DS Winding defaultFont
 
 data RenderState = RS
                    { _drawState :: DrawState   -- The current state.
@@ -261,18 +260,14 @@ stroke = renderPS "s"
 
 fill :: Render ()
 fill = do
-    ign  <- use $ drawState . ignoreFill
     rule <- use $ drawState . fillRule
-    unless ign $
-      case rule of
-        Winding -> renderPS "fill"
-        EvenOdd -> renderPS "eofill"
+    case rule of
+      Winding -> renderPS "fill"
+      EvenOdd -> renderPS "eofill"
 
 -- | Fill the current path without affecting the graphics state.
 fillPreserve :: Render ()
 fillPreserve = do
-    ign <- use $ drawState . ignoreFill
-    unless ign $ do
         gsave
         fill
         grestore

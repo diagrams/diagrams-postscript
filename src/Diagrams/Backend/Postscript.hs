@@ -5,10 +5,10 @@
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeSynonymInstances      #-}
 {-# LANGUAGE ViewPatterns              #-}
-
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Diagrams.Backend.Postscript
@@ -55,13 +55,14 @@ import           Diagrams.Backend.Postscript.CMYK
 import           Diagrams.Prelude              hiding (view, fillColor)
 
 import           Diagrams.TwoD.Adjust          (adjustDia2D)
-import           Diagrams.TwoD.Attributes
 import           Diagrams.TwoD.Path            (Clip (Clip), getFillRule)
 import           Diagrams.TwoD.Text
 
 import           Control.Lens                  hiding (transform)
 import           Control.Monad                 (when)
-import           Data.Maybe                    (catMaybes)
+import qualified Control.Monad.StateStack      as SS
+import           Control.Monad.Trans           (lift)
+import           Data.Maybe                    (catMaybes, isJust)
 
 import qualified Data.Foldable                 as F
 import           Data.Hashable                 (Hashable (..))
@@ -85,13 +86,48 @@ data OutputFormat = EPS -- ^ Encapsulated Postscript output.
 
 instance Hashable OutputFormat
 
+data PostscriptState
+  = PostscriptState { _accumStyle :: Style V2 Double
+                      -- ^ The current accumulated style.
+                    , _ignoreFill :: Bool
+                      -- ^ Whether or not we saw any lines in the most
+                      --   recent path (as opposed to loops).  If we did,
+                      --   we should ignore any fill attribute.
+                      --   diagrams-lib separates lines and loops into
+                      --   separate path primitives so we don't have to
+                      --   worry about seeing them together in the same
+                      --   path.
+                    }
+
+$(makeLenses ''PostscriptState)
+
+instance Default PostscriptState where
+   def = PostscriptState
+         { _accumStyle = mempty
+         , _ignoreFill = False
+         }
+
+type RenderM a = SS.StateStackT PostscriptState C.Render a
+
+liftC :: C.Render a -> RenderM a
+liftC = lift
+
+runRenderM :: RenderM a -> C.Render a
+runRenderM = flip SS.evalStateStackT def
+
+save :: RenderM ()
+save = SS.save >> liftC C.save
+
+restore :: RenderM ()
+restore = liftC C.restore >> SS.restore
+
 instance Monoid (Render Postscript V2 Double) where
   mempty  = C $ return ()
   (C x) `mappend` (C y) = C (x >> y)
 
 
 instance Backend Postscript V2 Double where
-  data Render  Postscript V2 Double = C (C.Render ())
+  data Render  Postscript V2 Double = C (RenderM ())
   type Result  Postscript V2 Double = IO ()
   data Options Postscript V2 Double = PostscriptOptions
           { _psfileName     :: String       -- ^ the name of the file you want generated
@@ -103,24 +139,27 @@ instance Backend Postscript V2 Double where
   renderRTree _ opts t =
     let surfaceF surface = C.renderWith surface r
         V2 w h = specToSize 100 (opts^.psSizeSpec)
-        r = runC . toRender $ t
+        r = runRenderM . runC . toRender $ t
     in case opts^.psOutputFormat of
          EPS -> C.withEPSSurface (opts^.psfileName) (round w) (round h) surfaceF
 
   adjustDia = adjustDia2D psSizeSpec
 
-runC :: Render Postscript V2 Double -> C.Render ()
+runC :: Render Postscript V2 Double -> RenderM ()
 runC (C r) = r
+
+-- | Get an accumulated style attribute from the render monad state.
+getStyleAttrib :: AttributeClass a => (a -> b) -> RenderM (Maybe b)
+getStyleAttrib f = (fmap f . getAttr) <$> use accumStyle
 
 toRender :: RTree Postscript V2 Double a -> Render Postscript V2 Double
 toRender (Node (RPrim p) _) = render Postscript p
 toRender (Node (RStyle sty) rs) = C $ do
-  C.save
-  postscriptMiscStyle sty
-  runC $ F.foldMap toRender rs
+  save
   postscriptStyle sty
-  C.stroke
-  C.restore
+  accumStyle %= (<> sty)
+  runC $ F.foldMap toRender rs
+  restore
 toRender (Node _ rs) = F.foldMap toRender rs
 
 instance Hashable (Options Postscript V2 Double) where
@@ -146,44 +185,43 @@ renderDias :: (Semigroup m, Monoid m) =>
 renderDias opts ds = case opts^.psOutputFormat of
   EPS -> C.withEPSSurface (opts^.psfileName) (round w) (round h) surfaceF
     where
-      surfaceF surface  = C.renderPagesWith surface (map (\(C r) -> r) rs)
+      surfaceF surface  = C.renderPagesWith surface rs
       dropMid (x, _, z) = (x,z)
       optsdss = map (dropMid . adjustDia Postscript opts) ds
       g2o     = scaling (sqrt (w * h))
-      rs      = map (toRender . toRTree g2o . snd) optsdss
+      rs      = map (runRenderM . runC . toRender . toRTree g2o . snd) optsdss
       sizes   = map (specToSize 1 . view psSizeSpec . fst) optsdss
       V2 w h  = foldBy (liftA2 max) zero sizes
 
-renderC :: (Renderable a Postscript, V a ~ V2, N a ~ Double) => a -> C.Render ()
-renderC a = case render Postscript a of C r -> r
+renderC :: (Renderable a Postscript, V a ~ V2, N a ~ Double) => a -> RenderM ()
+renderC = runC . render Postscript
 
--- | Handle \"miscellaneous\" style attributes (clip, font stuff, fill
---   color and fill rule).
-postscriptMiscStyle :: Style v Double -> C.Render ()
-postscriptMiscStyle s =
+-- | Handle those style attributes for which we can immediately emit
+--   postscript instructions as we encounter them in the tree (clip, font
+--   size, fill rule, line width, cap, join, and dashing).  Other
+--   attributes (font face, slant, weight; fill color, stroke color,
+--   opacity) must be accumulated.
+postscriptStyle :: Style v Double -> RenderM ()
+postscriptStyle s =
   sequence_
   . catMaybes $ [ handle clip
-                , handle fFace
-                , handle fSlant
-                , handle fWeight
-                , handle fSize
-                -- , handle fLocal
-                , handle fColor
-                , handle fColorCMYK
                 , handle lFillRule
+                , handle lWidth
+                , handle lJoin
+                , handle lMiter
+                , handle lCap
+                , handle lDashing
                 ]
   where
-    handle :: AttributeClass a => (a -> C.Render ()) -> Maybe (C.Render ())
+    handle :: AttributeClass a => (a -> RenderM ()) -> Maybe (RenderM ())
     handle f = f `fmap` getAttr s
-    clip     = mapM_ (\p -> renderC p >> C.clip) . op Clip
-    fSize    = assign (C.drawState . C.font . C.size) <$> getFontSize
-    fFace    = assign (C.drawState . C.font . C.face) <$> getFont
-    fSlant   = assign (C.drawState . C.font . C.slant) .fromFontSlant <$> getFontSlant
-    fWeight  = assign (C.drawState . C.font . C.weight) . fromFontWeight <$> getFontWeight
-    fColor :: FillTexture Double -> C.Render ()
-    fColor = C.fillColor . getFillTexture
-    fColorCMYK c = C.fillColorCMYK (getFillColorCMYK c)
-    lFillRule = assign (C.drawState . C.fillRule) . getFillRule
+    clip     = mapM_ (\p -> renderC p >> liftC C.clip) . op Clip
+    lFillRule = liftC . assign (C.drawState . C.fillRule) . getFillRule
+    lWidth = liftC . C.lineWidth . getLineWidth
+    lCap = liftC . C.lineCap . getLineCap
+    lJoin = liftC . C.lineJoin . getLineJoin
+    lMiter = liftC . C.miterLimit . getLineMiterLimit
+    lDashing (getDashing -> Dashing ds offs) = liftC $ C.setDash ds offs
 
 fromFontSlant :: FontSlant -> C.FontSlant
 fromFontSlant FontSlantNormal   = C.FontSlantNormal
@@ -194,32 +232,6 @@ fromFontWeight :: FontWeight -> C.FontWeight
 fromFontWeight FontWeightNormal = C.FontWeightNormal
 fromFontWeight FontWeightBold   = C.FontWeightBold
 
-postscriptStyle :: Style v Double -> C.Render ()
-postscriptStyle s = sequence_
-              . catMaybes $ [ handle fColor
-                            , handle fColorCMYK
-                            , handle lColor
-                            , handle lColorCMYK
-                            , handle lWidth
-                            , handle lJoin
-                            , handle lMiter
-                            , handle lCap
-                            , handle lDashing
-                            ]
-  where handle :: (AttributeClass a) => (a -> C.Render ()) -> Maybe (C.Render ())
-        handle f = f `fmap` getAttr s
-        lColor :: LineTexture Double -> C.Render ()
-        lColor = C.strokeColor . getLineTexture
-        lColorCMYK = C.strokeColorCMYK . getLineColorCMYK
-        fColor :: FillTexture Double -> C.Render ()
-        fColor c = C.fillColor (getFillTexture c) >> C.fillPreserve
-        fColorCMYK c = C.fillColorCMYK (getFillColorCMYK c) >> C.fillPreserve
-        lWidth = C.lineWidth . getLineWidth
-        lCap = C.lineCap . getLineCap
-        lJoin = C.lineJoin . getLineJoin
-        lMiter = C.miterLimit . getLineMiterLimit
-        lDashing (getDashing -> Dashing ds offs) = C.setDash ds offs
-
 postscriptTransf :: Transformation V2 Double -> C.Render ()
 postscriptTransf t = C.transform a1 a2 b1 b2 c1 c2
   where (V2 a1 a2) = apply t unitX
@@ -227,40 +239,87 @@ postscriptTransf t = C.transform a1 a2 b1 b2 c1 c2
         (V2 c1 c2) = transl t
 
 instance Renderable (Segment Closed V2 Double) Postscript where
-  render _ (Linear (OffsetClosed (V2 x y))) = C $ C.relLineTo x y
-  render _ (Cubic (V2 x1 y1)
-                  (V2 x2 y2)
-                  (OffsetClosed (V2 x3 y3)))
-    = C $ C.relCurveTo x1 y1 x2 y2 x3 y3
+  render _ (Linear (OffsetClosed v)) = C . liftC $ uncurry C.relLineTo (unr2 v)
+  render _ (Cubic (unr2 -> (x1, y1))
+                  (unr2 -> (x2, y2))
+                  (OffsetClosed (unr2 -> (x3, y3))))
+    = C . liftC $ C.relCurveTo x1 y1 x2 y2 x3 y3
 
 instance Renderable (Trail V2 Double) Postscript where
-  render _ t = flip withLine t $ renderT . lineSegments
+  render _ = withTrail renderLine renderLoop
     where
-      renderT segs =
-        C $ do
-          mapM_ renderC segs
-          when (isLoop t) C.closePath
+      renderLine ln = C $ do
+        mapM_ renderC (lineSegments ln)
 
-          -- We need to ignore the fill if we see a line.
-          -- Ignore fill is part of the drawing state, so
-          -- it will be cleared by the `restore` after this
-          -- primitive.
-          when (isLine t) $ (C.drawState . C.ignoreFill) .= True
+        -- remember that we saw a Line, so we will ignore fill attribute
+        ignoreFill .= True
+
+      renderLoop lp = C $ do
+        case loopSegments lp of
+          -- let closePath handle the last segment if it is linear
+          (segs, Linear _) -> mapM_ renderC segs
+
+          -- otherwise we have to draw it explicitly
+          _ -> mapM_ renderC (lineSegments . cutLoop $ lp)
+
+        liftC C.closePath
 
 instance Renderable (Path V2 Double) Postscript where
-  render _ p = C $ C.newPath >> F.mapM_ renderTrail (op Path p)
+  render _ p = C $ do
+      postscriptPath p
+      f <- getStyleAttrib getFillTexture
+      s <- getStyleAttrib getLineTexture
+      fk <- getStyleAttrib getFillColorCMYK
+      sk <- getStyleAttrib getLineColorCMYK
+      ign <- use ignoreFill
+      setFillColor f fk
+      when ((isJust f || isJust fk) && not ign) $ liftC C.fillPreserve
+      setStrokeColor s sk
+      liftC C.stroke
+
+setFillColor :: Maybe (Texture Double) -> Maybe (CMYK) -> RenderM ()
+setFillColor c cmyk = do
+    liftC $ maybe (return ()) C.fillColor c
+    liftC $ maybe (return ()) C.fillColorCMYK cmyk
+
+setStrokeColor :: Maybe (Texture Double) -> Maybe (CMYK) -> RenderM ()
+setStrokeColor c cmyk = do
+    liftC $ maybe (return ()) C.strokeColor c
+    liftC $ maybe (return ()) C.strokeColorCMYK cmyk
+
+postscriptPath :: Path V2 Double -> RenderM ()
+postscriptPath (Path trs) = do
+      liftC C.newPath
+      ignoreFill .= False
+      F.mapM_ renderTrail trs
     where renderTrail (viewLoc -> (unp2 -> pt, tr)) = do
-            uncurry C.moveTo pt
+            liftC $ uncurry C.moveTo pt
             renderC tr
+
+if' :: Monad m => (a -> m ()) -> Maybe a -> m ()
+if' = maybe (return ())
 
 instance Renderable (Text Double) Postscript where
   render _ (Text tr al str) = C $ do
-      C.save
-      postscriptTransf tr
+      ff <- getStyleAttrib getFont
+      fs <- getStyleAttrib (fromFontSlant . getFontSlant)
+      fw <- getStyleAttrib (fromFontWeight . getFontWeight)
+      size' <- getStyleAttrib getFontSize
+      f <- getStyleAttrib getFillTexture
+      fk <- getStyleAttrib getFillColorCMYK
+      save
+      setFillColor f fk
+      liftC $ do
+        if' (assign (C.drawState . C.font . C.size))   size'
+        if' (assign (C.drawState . C.font . C.face))   ff
+        if' (assign (C.drawState . C.font . C.slant))  fs
+        if' (assign (C.drawState . C.font . C.weight)) fw
+      when (isJust f || isJust fk) $ liftC C.fillPreserve
+      liftC $ postscriptTransf tr
       case al of
-        BoxAlignedText xt yt -> C.showTextAlign xt yt str
-        BaselineText         -> C.moveTo 0 0 >> C.showText str
-      C.restore
+        BoxAlignedText xt yt -> liftC $ C.showTextAlign xt yt str
+        BaselineText         -> liftC $ C.moveTo 0 0 >> C.showText str
+      restore
 
 -- $PostscriptOptions
 --
