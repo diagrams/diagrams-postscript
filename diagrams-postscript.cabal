@@ -5,12 +5,15 @@ Description:         This package provides a modular backend for rendering
                      diagrams created with the diagrams EDSL using Postscript.
                      .
                      * "Diagrams.Backend.Postscript.CmdLine" - Provides
-                     the "defaultMain" interface to render a diagram
+                     the "mainWith" interface to render a diagram
                      based on command line options.
                      .
                      * "Diagrams.Backend.Postscript" - Provides the
                      general API for rendering diagrams using the
                      Postscript backend.
+                     .
+                     * "Diagrams.Backend.CMYK" - Special support for CMYK
+                     color attributes.
 Homepage:            http://projects.haskell.org/diagrams/
 License:             BSD3
 License-file:        LICENSE

@@ -48,27 +48,27 @@ module Diagrams.Backend.Postscript
   , renderDias
   ) where
 
-import           Diagrams.Core.Compile
-import qualified Graphics.Rendering.Postscript as C
 import           Diagrams.Backend.Postscript.CMYK
+import           Diagrams.Core.Compile
+import qualified Graphics.Rendering.Postscript    as C
 
-import           Diagrams.Prelude              hiding (view, fillColor)
+import           Diagrams.Prelude                 hiding (fillColor, view)
 
-import           Diagrams.TwoD.Adjust          (adjustDia2D)
-import           Diagrams.TwoD.Path            (Clip (Clip), getFillRule)
+import           Diagrams.TwoD.Adjust             (adjustDia2D)
+import           Diagrams.TwoD.Path               (Clip (Clip), getFillRule)
 import           Diagrams.TwoD.Text
 
-import           Control.Lens                  hiding (transform)
-import           Control.Monad                 (when)
-import qualified Control.Monad.StateStack      as SS
-import           Control.Monad.Trans           (lift)
-import           Data.Maybe                    (catMaybes, isJust)
+import           Control.Lens                     hiding (transform)
+import           Control.Monad                    (when)
+import qualified Control.Monad.StateStack         as SS
+import           Control.Monad.Trans              (lift)
+import           Data.Maybe                       (catMaybes, isJust)
 
-import qualified Data.Foldable                 as F
-import           Data.Hashable                 (Hashable (..))
+import qualified Data.Foldable                    as F
+import           Data.Hashable                    (Hashable (..))
 import           Data.Tree
 import           Data.Typeable
-import           GHC.Generics                  (Generic)
+import           GHC.Generics                     (Generic)
 
 -- | This data declaration is simply used as a token to distinguish this rendering engine.
 data Postscript = Postscript
@@ -328,7 +328,7 @@ instance Renderable (Text Double) Postscript where
 -- This module defines
 --
 -- > data family Options Postscript V2 Double = PostscriptOptions
--- >           { psfileName     :: String            -- ^ the name of the file you want generated
--- >           , psSizeSpec     :: SizeSpec2D Double -- ^ the requested size of the output
--- >           , psOutputFormat :: OutputFormat      -- ^ the output format and associated options
+-- >           { _psfileName     :: String             -- ^ the name of the file you want generated
+-- >           , _psSizeSpec     :: SizeSpec V2 Double -- ^ the requested size of the output
+-- >           , _psOutputFormat :: OutputFormat        -- ^ the output format and associated options
 -- >           }
