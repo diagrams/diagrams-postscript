@@ -44,7 +44,7 @@ Library
                        statestack >= 0.2 && < 0.3,
                        split >= 0.1.2 && < 0.3,
                        monoid-extras >= 0.3 && < 0.5,
-                       semigroups >= 0.3.4 && < 0.18,
+                       semigroups >= 0.3.4 && < 0.19,
                        lens >= 4.0 && < 4.14,
                        containers >= 0.3 && < 0.6,
                        hashable >= 1.1 && < 1.3
