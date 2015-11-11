@@ -1,3 +1,9 @@
+## [1.3.0.4](https://github.com/diagrams/diagrams-postscript/tree/v1.3.0.4) (2015-11-10)
+
+- allow `semigroups-0.18`
+
+[Full Changelog](https://github.com/diagrams/diagrams-postscript/compare/v1.3.0.3...v1.3.0.4)
+
 ## [1.3.0.3](https://github.com/diagrams/diagrams-postscript/tree/v1.3.0.3) (2015-09-22)
 
 - allow `lens-4.13` and `semigroups-0.17`
