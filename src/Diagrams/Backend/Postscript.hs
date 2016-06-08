@@ -231,6 +231,7 @@ fromFontSlant FontSlantOblique  = C.FontSlantOblique
 fromFontWeight :: FontWeight -> C.FontWeight
 fromFontWeight FontWeightNormal = C.FontWeightNormal
 fromFontWeight FontWeightBold   = C.FontWeightBold
+fromFontWeight _                = C.FontWeightNormal
 
 postscriptTransf :: Transformation V2 Double -> C.Render ()
 postscriptTransf t = C.transform a1 a2 b1 b2 c1 c2
