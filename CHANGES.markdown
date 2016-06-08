@@ -1,3 +1,12 @@
+## [1.3.0.6](https://github.com/diagrams/diagrams-postscript/tree/v1.3.0.6) (2016-05-01)
+
+- allow `base-4.9`
+- allow `data-default-class-0.1`
+- test with GHC 8.0.1
+
+[Full Changelog](https://github.com/diagrams/diagrams-postscript/compare/v1.3.0.5...v1.3.0.6)
+
+
 ## [1.3.0.5](https://github.com/diagrams/diagrams-postscript/tree/v1.3.0.5) (2016-05-01)
 
 - allow `lens-4.14`
