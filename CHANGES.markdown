@@ -1,3 +1,7 @@
+## [1.3.0.7](https://github.com/diagrams/diagrams-postscript/tree/v1.3.0.7) (2016-07-20)
+
+- allow `dlist-0.8`
+
 ## [1.3.0.6](https://github.com/diagrams/diagrams-postscript/tree/v1.3.0.6) (2016-05-01)
 
 - allow `base-4.9`
