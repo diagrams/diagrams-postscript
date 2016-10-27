@@ -1,3 +1,7 @@
+## [1.4](https://github.com/diagrams/diagrams-postscript/tree/v1.4) (XXX)
+
+No significant changes, bumping version to correspond to diagrams 1.4 release
+
 ## [1.3.0.7](https://github.com/diagrams/diagrams-postscript/tree/v1.3.0.7) (2016-07-20)
 
 - allow `dlist-0.8`
