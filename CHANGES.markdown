@@ -1,4 +1,4 @@
-## [1.4](https://github.com/diagrams/diagrams-postscript/tree/v1.4) (XXX)
+## [1.4](https://github.com/diagrams/diagrams-postscript/tree/v1.4) (2016-10-26)
 
 No significant changes, bumping version to correspond to diagrams 1.4
 release.
