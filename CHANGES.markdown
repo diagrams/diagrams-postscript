@@ -1,6 +1,10 @@
 ## [1.4](https://github.com/diagrams/diagrams-postscript/tree/v1.4) (XXX)
 
-No significant changes, bumping version to correspond to diagrams 1.4 release
+No significant changes, bumping version to correspond to diagrams 1.4
+release.
+
+  - allow `diagrams-core-1.4`
+  - allow `diagrams-lib-1.4`
 
 ## [1.3.0.7](https://github.com/diagrams/diagrams-postscript/tree/v1.3.0.7) (2016-07-20)
 
