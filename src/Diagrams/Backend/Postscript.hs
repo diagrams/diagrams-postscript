@@ -64,6 +64,8 @@ import qualified Control.Monad.StateStack         as SS
 import           Control.Monad.Trans              (lift)
 import           Data.Maybe                       (catMaybes, isJust)
 
+import qualified Data.ByteString.Builder          as B
+
 import qualified Data.Foldable                    as F
 import           Data.Hashable                    (Hashable (..))
 import           Data.Tree
@@ -128,7 +130,7 @@ instance Monoid (Render Postscript V2 Double) where
 
 instance Backend Postscript V2 Double where
   data Render  Postscript V2 Double = C (RenderM ())
-  type Result  Postscript V2 Double = IO ()
+  type Result  Postscript V2 Double = B.Builder
   data Options Postscript V2 Double = PostscriptOptions
           { _psfileName     :: String       -- ^ the name of the file you want generated
           , _psSizeSpec     :: SizeSpec V2 Double   -- ^ the requested size of the output
@@ -137,7 +139,7 @@ instance Backend Postscript V2 Double where
     deriving (Show)
 
   renderRTree _ opts t =
-    let surfaceF surface = C.renderWith surface r
+    let surfaceF surface = fst (C.renderBuilder surface r)
         V2 w h = specToSize 100 (opts^.psSizeSpec)
         r = runRenderM . runC . toRender $ t
     in case opts^.psOutputFormat of

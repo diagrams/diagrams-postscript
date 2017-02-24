@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
 -----------------------------------------------------------------------------
 -- |
@@ -28,6 +29,8 @@ module Graphics.Rendering.Postscript
   , PSWriter(..)
   , renderWith
   , renderPagesWith
+  , renderBuilder
+  , renderPagesBuilder
   , withEPSSurface
   , newPath
   , moveTo
@@ -76,21 +79,22 @@ module Graphics.Rendering.Postscript
 
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative
+import           Data.Monoid              (mempty, mconcat)
 #endif
 import           Control.Lens             (Lens', makeLenses, use, (%=), (.=))
-import           Control.Monad.State
-import           Control.Monad.Writer
+import           Control.Monad.State.Strict
+import qualified Data.ByteString.Builder  as B
 import           Data.Char                (isPrint, ord)
-import           Data.DList               (DList, fromList, toList)
 import           Data.List                (intersperse)
+import           Data.Semigroup           (Semigroup (..))
+import           Data.String              (fromString)
 import           Diagrams.Attributes      (Color (..), LineCap (..),
                                            LineJoin (..), SomeColor (..),
                                            colorToSRGBA)
 import           Diagrams.TwoD.Attributes (Texture (..))
 import           Diagrams.TwoD.Path       hiding (fillRule, stroke)
 import           Numeric                  (showIntAtBase)
-import           System.IO                (IOMode (..), hClose, hPutStr,
-                                           openFile)
+import           System.IO                (IOMode (..), withFile)
 
 data CMYK = CMYK
     { _cyan    :: Double
@@ -140,8 +144,8 @@ emptyDS :: DrawState
 emptyDS = DS Winding defaultFont
 
 data RenderState = RS
-                   { _drawState :: DrawState   -- The current state.
-                   , _saved     :: [DrawState] -- A stack of passed states pushed by save and poped with restore.
+                   { _drawState :: !DrawState   -- The current state.
+                   , _saved     :: ![DrawState] -- A stack of passed states pushed by save and poped with restore.
                    }
 
 makeLenses ''RenderState
@@ -150,17 +154,21 @@ emptyRS :: RenderState
 emptyRS = RS emptyDS []
 
 --
+-- | Type for a monad that writes Postscript using the commands we will define later.
 
 -- | Type for a monad that writes Postscript using the commands we will define later.
-newtype PSWriter m = PSWriter { runPSWriter :: WriterT (DList String) IO m }
-  deriving (Functor, Applicative, Monad, MonadWriter (DList String))
+newtype PSWriter m = PSWriter { runPSWriter :: State B.Builder m }
+  deriving (Functor, Applicative, Monad, MonadState B.Builder)
+
+tell' :: (MonadState s m, Semigroup s) => s -> m ()
+tell' x = modify' (<> x)
 
 -- | Type of the monad that tracks the state from side-effecting commands.
 newtype Render m = Render { runRender :: StateT RenderState PSWriter m }
   deriving (Functor, Applicative, Monad, MonadState RenderState)
 
 -- | Abstraction of the drawing surface details.
-data Surface = Surface { header :: Int -> String, footer :: Int -> String, _width :: Int, _height :: Int, fileName :: String }
+data Surface = Surface { header :: Int -> B.Builder, footer :: Int -> B.Builder, _width :: Int, _height :: Int, fileName :: String }
 
 doRender :: Render a -> PSWriter a
 doRender r = evalStateT (runRender r) emptyRS
@@ -169,50 +177,57 @@ doRender r = evalStateT (runRender r) emptyRS
 --   passed 'Surface' and renders the commands built up in the
 --   'Render' argument.
 renderWith :: MonadIO m => Surface -> Render a -> m a
-renderWith s r = liftIO $ do
-    (v,ss) <- runWriterT . runPSWriter . doRender $ r
-    h <- openFile (fileName s) WriteMode
-    hPutStr h (header s 1)
-    mapM_ (hPutStr h) (toList ss)
-    hPutStr h (footer s 1)
-    hClose h
+renderWith s r = liftIO $ withFile (fileName s) WriteMode $ \h -> do
+    B.hPutBuilder h b
     return v
+  where
+    (b, v) = renderBuilder s r
+
+-- | Pure variant of 'renderWith'
+renderBuilder :: Surface -> Render a -> (B.Builder, a)
+renderBuilder s r =
+    let (v, ss) = flip runState mempty . runPSWriter . doRender $ r
+    in (header s 1 <> ss <> footer s 1, v)
 
 -- | Renders multiple pages given as a list of 'Render' actions
 --   to the file associated with the 'Surface' argument.
 renderPagesWith :: MonadIO m => Surface -> [Render a] -> m [a]
-renderPagesWith s rs = liftIO $ do
-    h <- openFile (fileName s) WriteMode
-    hPutStr h (header s (length rs))
-
-    vs <- mapM (page h) (zip rs [1..])
-
-    hClose h
-    return vs
+renderPagesWith s rs = liftIO $ withFile (fileName s) WriteMode $ \h -> do
+    B.hPutBuilder h b
+    return v
   where
-    page h (r,i) = do
-      (v,ss) <- runWriterT . runPSWriter . doRender $ r
-      mapM_ (hPutStr h) (toList ss)
-      hPutStr h (footer s i)
-      return v
+    (b, v) = renderPagesBuilder s rs
+
+-- | Pure variant of 'renderPagesWith'
+renderPagesBuilder :: Surface -> [Render a] -> (B.Builder, [a])
+renderPagesBuilder s rs =
+    let (vs, sss) = unzip . map (uncurry page) $ zip rs [1..]
+    in (header s (length rs) <> mconcat sss, vs)
+ where
+   page r i =
+      let (v, ss) = flip runState mempty . runPSWriter . doRender $  r
+      in (v, ss <> footer s i)
 
 -- | Builds a surface and performs an action on that surface.
-withEPSSurface :: String -> Int -> Int -> (Surface -> IO a) -> IO a
+withEPSSurface :: String -> Int -> Int -> (Surface -> r) -> r
 withEPSSurface file w h f = f s
   where s = Surface (epsHeader w h) epsFooter w h file
 
-renderPS :: String -> Render ()
-renderPS s = Render . lift . tell $ fromList [s, "\n"]
+renderPS :: B.Builder -> Render ()
+renderPS b = Render . lift . tell' $ b <> "\n"
+
+renderWordsPS :: (a -> B.Builder) -> [a] -> Render ()
+renderWordsPS f = renderPS  . mconcat . intersperse " " . map f
 
 -- | Clip with the current path.
 clip :: Render ()
 clip = renderPS "clip"
 
-mkPSCall :: Show a => String -> [a] -> Render()
-mkPSCall n vs = renderPS . concat $ intersperse " " (map show vs) ++ [" ", n]
+mkPSCall :: (a -> B.Builder) -> B.Builder -> [a] -> Render ()
+mkPSCall f n vs = mkPSCall' n (map f vs)
 
-mkPSCall' :: String -> [String] -> Render()
-mkPSCall' n vs = renderPS . concat $ intersperse " " vs ++ [" ", n]
+mkPSCall' :: B.Builder -> [B.Builder] -> Render()
+mkPSCall' n vs = renderPS $ mconcat (intersperse " " vs) <> " " <> n
 
 -- | Start a new path.
 newPath :: Render ()
@@ -229,30 +244,30 @@ arc :: Double -- ^ x-coordinate of center.
     -> Double -- ^ start angle in radians.
     -> Double -- ^ end angle in radians.
     -> Render ()
-arc a b c d e = mkPSCall "arc" [a,b,c, d * 180 / pi, e* 180 / pi]
+arc a b c d e = mkPSCall B.doubleDec "arc" [a,b,c, d * 180 / pi, e* 180 / pi]
 
 -- | Move the current point.
 moveTo :: Double -> Double -> Render ()
-moveTo x y = mkPSCall "moveto" [x,y]
+moveTo x y = mkPSCall B.doubleDec "moveto" [x,y]
 
 -- | Add a line to the current path from the current point to the given point.
 --   The current point is also moved with this command.
 lineTo :: Double -> Double -> Render ()
-lineTo x y = mkPSCall "lineto" [x,y]
+lineTo x y = mkPSCall B.doubleDec "lineto" [x,y]
 
 -- | Add a cubic Bézier curve segment to the current path from the current point.
 --   The current point is also moved with this command.
 curveTo :: Double -> Double -> Double -> Double -> Double -> Double -> Render ()
-curveTo ax ay bx by cx cy = mkPSCall "curveto" [ax,ay,bx,by,cx,cy]
+curveTo ax ay bx by cx cy = mkPSCall B.doubleDec "curveto" [ax,ay,bx,by,cx,cy]
 
 -- | Add a line segment to the current path using relative coordinates.
 relLineTo :: Double -> Double -> Render ()
-relLineTo x y = mkPSCall "rlineto" [x,y]
+relLineTo x y = mkPSCall B.doubleDec "rlineto" [x,y]
 
 -- | Add a cubic Bézier curve segment to the current path from the current point
 --   using relative coordinates.
 relCurveTo :: Double -> Double -> Double -> Double -> Double -> Double -> Render ()
-relCurveTo ax ay bx by cx cy = mkPSCall "rcurveto" [ax,ay,bx,by,cx,cy]
+relCurveTo ax ay bx by cx cy = mkPSCall B.doubleDec "rcurveto" [ax,ay,bx,by,cx,cy]
 
 -- | Stroke the current path.
 stroke :: Render ()
@@ -290,7 +305,7 @@ showTextCentered s = do
 showTextInBox :: (Double,Double) -> (Double,Double) -> String -> Render ()
 showTextInBox (a,b) (c,d) s = do
     renderFont
-    renderPS . unwords . map show $ [a,b,c,d]
+    renderWordsPS B.doubleDec $ [a,b,c,d]
     stringPS s
     renderPS " showinbox"
 
@@ -298,18 +313,19 @@ showTextInBox (a,b) (c,d) s = do
 showTextAlign :: Double -> Double -> String -> Render ()
 showTextAlign xt yt s = do
     renderFont
-    renderPS . unwords . map show $ [xt, yt]
+    renderPS " "
+    renderWordsPS B.doubleDec [xt, yt]
     stringPS s
     renderPS " showalign"
 
 -- | Apply a transform matrix to the current transform.
 transform :: Double -> Double -> Double -> Double -> Double -> Double -> Render ()
 transform ax ay bx by tx ty = when (vs /= [1.0,0.0,0.0,1.0,0.0,0.0]) $
-      renderPS (matrixPS vs ++ " concat")
+      renderPS (matrixPS vs <> " concat")
     where vs  = [ax,ay,bx,by,tx,ty]
 
-matrixPS :: Show a => [a] -> String
-matrixPS vs = unwords ("[" : map show vs ++ ["]"])
+matrixPS :: Show a => [a] -> B.Builder
+matrixPS vs = fromString $ unwords ("[" : map show vs ++ ["]"])
 
 -- | Push the current state of the renderer onto the state stack.
 save :: Render ()
@@ -364,12 +380,12 @@ colorPS c = [ r, g, b ]
 
 -- | Set the color of the stroke.  Ignore gradients.
 strokeColor :: Texture n -> Render ()
-strokeColor (SC (SomeColor c)) = mkPSCall "setrgbcolor" (colorPS c)
+strokeColor (SC (SomeColor c)) = mkPSCall B.doubleDec "setrgbcolor" (colorPS c)
 strokeColor _ = return ()
 
 -- | Set the color of the fill.  Ignore gradients.
 fillColor :: Texture n -> Render ()
-fillColor (SC (SomeColor c)) = mkPSCall "setrgbcolor" (colorPS c)
+fillColor (SC (SomeColor c)) = mkPSCall B.doubleDec "setrgbcolor" (colorPS c)
 fillColor _ = return ()
 
 -- CMYK colors
@@ -378,36 +394,36 @@ colorCMYK (CMYK c m y k) = [c,m,y,k]
 
 -- | Set the color of the stroke.
 strokeColorCMYK :: CMYK -> Render ()
-strokeColorCMYK c = mkPSCall "setcmykcolor" (colorCMYK c)
+strokeColorCMYK c = mkPSCall B.doubleDec "setcmykcolor" (colorCMYK c)
 
 -- | Set the color of the fill.
 fillColorCMYK :: CMYK -> Render ()
-fillColorCMYK c = mkPSCall "setcmykcolor" (colorCMYK c)
+fillColorCMYK c = mkPSCall B.doubleDec "setcmykcolor" (colorCMYK c)
 
 -- | Set the line width.
 lineWidth :: Double -> Render ()
-lineWidth w = mkPSCall "setlinewidth" [w]
+lineWidth w = mkPSCall B.doubleDec "setlinewidth" [w]
 
 -- | Set the line cap style.
 lineCap :: LineCap -> Render ()
-lineCap lc = mkPSCall "setlinecap" [fromLineCap lc]
+lineCap lc = mkPSCall B.intDec "setlinecap" [fromLineCap lc]
 
 -- | Set the line join method.
 lineJoin :: LineJoin -> Render ()
-lineJoin lj = mkPSCall "setlinejoin" [fromLineJoin lj]
+lineJoin lj = mkPSCall B.intDec "setlinejoin" [fromLineJoin lj]
 
 -- | Set the miter limit.
 miterLimit :: Double -> Render ()
-miterLimit ml = mkPSCall "setmiterlimit" [ml]
+miterLimit ml = mkPSCall B.doubleDec "setmiterlimit" [ml]
 
 -- | Set the dash style.
 setDash :: [Double] -- ^ Dash pattern (even indices are "on").
         -> Double   -- ^ Offset.
         -> Render ()
-setDash as offset = mkPSCall' "setdash" [showArray as, show offset]
+setDash as offset = mkPSCall' "setdash" [showArray B.doubleDec as, B.doubleDec offset]
 
-showArray :: Show a => [a] -> String
-showArray as = concat ["[", concat $ intersperse " " (map show as), "]"]
+showArray :: (a -> B.Builder) -> [a] -> B.Builder
+showArray f as = "[" <> mconcat (intersperse " " (map f as)) <> "]"
 
 fromLineCap :: LineCap -> Int
 fromLineCap LineCapRound  = 1
@@ -421,18 +437,21 @@ fromLineJoin _             = 0
 
 -- | Translate the current transform matrix.
 translate :: Double -> Double -> Render ()
-translate x y = mkPSCall "translate" [x,y]
+translate x y = mkPSCall B.doubleDec "translate" [x,y]
 
 -- | Scale the current transform matrix.
 scale :: Double -> Double -> Render ()
-scale x y = mkPSCall "scale" [x,y]
+scale x y = mkPSCall B.doubleDec "scale" [x,y]
 
 -- | Rotate the current transform matrix.
 rotate :: Double -> Render ()
-rotate t = mkPSCall "rotate" [t]
+rotate t = mkPSCall B.doubleDec "rotate" [t]
 
 stringPS :: String -> Render ()
-stringPS ss = Render $ lift (tell (fromList ("(" : map escape ss)) >> tell (fromList [")"]))
+stringPS ss = Render $ lift $ do
+    tell' "("
+    tell' (fromString $ concatMap escape ss)
+    tell' ")"
   where escape '\n' = "\\n"
         escape '\r' = "\\r"
         escape '\t' = "\\t"
@@ -444,12 +463,12 @@ stringPS ss = Render $ lift (tell (fromList ("(" : map escape ss)) >> tell (from
         escape c | isPrint c = [c]
                  | otherwise = '\\' : showIntAtBase 7 ("01234567"!!) (ord c) ""
 
-epsHeader :: Int -> Int -> Int -> String
-epsHeader w h pages = concat
+epsHeader :: Int -> Int -> Int -> B.Builder
+epsHeader w h pages = mconcat
           [ "%!PS-Adobe-3.0", if pages == 1 then " EPSF-3.0\n" else "\n"
           , "%%Creator: diagrams-postscript 0.1\n"
-          , "%%BoundingBox: 0 0 ", show w, " ", show h, "\n"
-          , "%%Pages: ", show pages, "\n"
+          , "%%BoundingBox: 0 0 ", B.intDec w, " ", B.intDec h, "\n"
+          , "%%Pages: ", B.intDec pages, "\n"
           , "%%EndComments\n\n"
           , "%%BeginProlog\n"
           , "%%BeginResource: procset diagrams-postscript 0 0\n"
@@ -475,11 +494,11 @@ epsHeader w h pages = concat
           , "%%Page: 1 1\n"
           ]
 
-epsFooter :: Int -> String
-epsFooter page = concat
+epsFooter :: Int -> B.Builder
+epsFooter page = mconcat
           [ "showpage\n"
           , "%%PageTrailer\n"
-          , "%%EndPage: ", show page, "\n"
+          , "%%EndPage: ", B.intDec page, "\n"
           ]
 
 ---------------------------
@@ -488,8 +507,8 @@ epsFooter page = concat
 renderFont :: Render ()
 renderFont = do
     n <- fontFromName <$> f face <*> f slant <*> f weight
-    s <- show <$> f size
-    renderPS $ concat ["/", n, " ", s, " selectfont"]
+    s <- f size
+    renderPS $ mconcat ["/", fromString n, " ", B.doubleDec s, " selectfont"]
   where
     f :: Lens' PostscriptFont a -> Render a
     f x = use $ drawState . font . x
