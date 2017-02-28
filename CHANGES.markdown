@@ -1,3 +1,7 @@
+## [1.5](https://github.com/diagrams/diagrams-postscript/tree/v1.5) (TBA)
+
+  - Make `Result Postscript V2 Double = Builder`, allowing rendering in-memory.
+
 ## [1.4](https://github.com/diagrams/diagrams-postscript/tree/v1.4) (2016-10-26)
 
 No significant changes, bumping version to correspond to diagrams 1.4

@@ -72,6 +72,9 @@ module Diagrams.Backend.Postscript.CmdLine
 
       ) where
 
+import qualified Data.ByteString.Builder     as B
+import           System.IO                   (IOMode (..), hPutStr, withFile)
+
 import           Diagrams.Backend.CmdLine
 import           Diagrams.Backend.Postscript
 import           Diagrams.Prelude            hiding (height, interval, option,
@@ -165,7 +168,10 @@ renderDias' :: [QDiagram Postscript V2 Double Any] -> Options Postscript V2 Doub
 renderDias' ds o = renderDias o ds >> return ()
 
 renderDia' :: QDiagram Postscript V2 Double Any -> Options Postscript V2 Double -> IO ()
-renderDia' d o = renderDia Postscript o d >> return ()
+renderDia' d o = do
+  let b = renderDia Postscript o d
+  withFile (o ^. psfileName) WriteMode $ \h -> B.hPutBuilder h b
+
 
 
 -- | @multiMain@ is like 'defaultMain', except instead of a single
