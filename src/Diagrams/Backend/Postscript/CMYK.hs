@@ -52,7 +52,6 @@ import           Graphics.Rendering.Postscript(CMYK(..))
 --   is that of 'Last'.
 newtype LineColorCMYK = LineColorCMYK (Last CMYK)
   deriving (Typeable, Semigroup)
-instance AttributeClass LineColorCMYK
 
 instance Default LineColorCMYK where
     def = LineColorCMYK (Last (CMYK 0 0 0 1))
@@ -96,7 +95,6 @@ lcCMYK = lineColorCMYK
 --   is that of 'Last'.
 newtype FillColorCMYK = FillColorCMYK (Recommend (Last CMYK))
   deriving (Typeable, Semigroup)
-instance AttributeClass FillColorCMYK
 
 instance Default FillColorCMYK where
   def = FillColorCMYK (Recommend (Last (CMYK 0 0 0 0)))
