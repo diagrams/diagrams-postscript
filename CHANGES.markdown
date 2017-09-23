@@ -10,6 +10,10 @@ release.
   - allow `diagrams-core-1.4`
   - allow `diagrams-lib-1.4`
 
+  Hackage revision 1:
+
+  - allow `base-4.10`
+
 ## [1.3.0.7](https://github.com/diagrams/diagrams-postscript/tree/v1.3.0.7) (2016-07-20)
 
 - allow `dlist-0.8`
