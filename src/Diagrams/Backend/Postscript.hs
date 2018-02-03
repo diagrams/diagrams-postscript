@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                       #-}
 {-# LANGUAGE DeriveDataTypeable        #-}
 {-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE FlexibleContexts          #-}
@@ -123,10 +124,14 @@ save = SS.save >> liftC C.save
 restore :: RenderM ()
 restore = liftC C.restore >> SS.restore
 
+instance Semigroup (Render Postscript V2 Double) where
+  C x <> C y = C (x >> y)
+
 instance Monoid (Render Postscript V2 Double) where
   mempty  = C $ return ()
-  (C x) `mappend` (C y) = C (x >> y)
-
+#if !MIN_VERSION_base(4,11,0)
+  mappend = (<>)
+#endif
 
 instance Backend Postscript V2 Double where
   data Render  Postscript V2 Double = C (RenderM ())
