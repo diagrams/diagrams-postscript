@@ -22,8 +22,8 @@ Maintainer:          diagrams-discuss@googlegroups.com
 Bug-reports:         http://github.com/diagrams/diagrams-postscript/issues
 Category:            Graphics
 Build-type:          Simple
-Cabal-version:       >=1.10
-Tested-with:         GHC == 7.6.3, GHC == 7.8.4, GHC == 7.10.3, GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.2
+Cabal-version:       1.18
+Tested-with:         GHC == 7.8.4, GHC == 7.10.3, GHC == 8.0.2, GHC == 8.2.2, GHC == 8.4.2
 Source-repository head
   type:     git
   location: https://github.com/diagrams/diagrams-postscript.git
