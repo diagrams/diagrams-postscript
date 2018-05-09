@@ -73,7 +73,7 @@ module Diagrams.Backend.Postscript.CmdLine
       ) where
 
 import qualified Data.ByteString.Builder     as B
-import           System.IO                   (IOMode (..), hPutStr, withFile)
+import           System.IO                   (IOMode (..), withFile)
 
 import           Diagrams.Backend.CmdLine
 import           Diagrams.Backend.Postscript
