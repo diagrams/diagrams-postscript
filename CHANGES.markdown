@@ -1,3 +1,8 @@
+## [1.4.1](https://github.com/diagrams/diagrams-postscript/tree/v1.4) (2018-05-23)
+
+- Allow `base-4.11` and `lens-4.16`
+- Add a `Semigroup (Render Postscript V2 Double)` instance
+
 ## [1.4](https://github.com/diagrams/diagrams-postscript/tree/v1.4) (2016-10-26)
 
 No significant changes, bumping version to correspond to diagrams 1.4
