@@ -161,7 +161,13 @@ newtype PSWriter m = PSWriter { runPSWriter :: State B.Builder m }
   deriving (Functor, Applicative, Monad, MonadState B.Builder)
 
 tell' :: (MonadState s m, Semigroup s) => s -> m ()
+#if MIN_VERSION_mtl(2,2,0)
 tell' x = modify' (<> x)
+#else
+tell' x = do
+  s' <- get
+  put $! s' <> x
+#endif
 
 -- | Type of the monad that tracks the state from side-effecting commands.
 newtype Render m = Render { runRender :: StateT RenderState PSWriter m }
