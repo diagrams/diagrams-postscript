@@ -1,8 +1,12 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE TemplateHaskell            #-}
+
+{-# OPTIONS_GHC -fno-warn-unused-imports #-}
+  -- for Data.Semigroup
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Rendering.Postscript
@@ -79,22 +83,22 @@ module Graphics.Rendering.Postscript
 
 #if __GLASGOW_HASKELL__ < 710
 import           Control.Applicative
-import           Data.Monoid              (mempty, mconcat)
+import           Data.Monoid                (mconcat, mempty)
 #endif
-import           Control.Lens             (Lens', makeLenses, use, (%=), (.=))
+import           Control.Lens               (Lens', makeLenses, use, (%=), (.=))
 import           Control.Monad.State.Strict
-import qualified Data.ByteString.Builder  as B
-import           Data.Char                (isPrint, ord)
-import           Data.List                (intersperse)
-import           Data.Semigroup           (Semigroup (..))
-import           Data.String              (fromString)
-import           Diagrams.Attributes      (Color (..), LineCap (..),
-                                           LineJoin (..), SomeColor (..),
-                                           colorToSRGBA)
-import           Diagrams.TwoD.Attributes (Texture (..))
-import           Diagrams.TwoD.Path       hiding (fillRule, stroke)
-import           Numeric                  (showIntAtBase)
-import           System.IO                (IOMode (..), withFile)
+import qualified Data.ByteString.Builder    as B
+import           Data.Char                  (isPrint, ord)
+import           Data.List                  (intersperse)
+import           Data.Semigroup             (Semigroup (..))
+import           Data.String                (fromString)
+import           Diagrams.Attributes        (Color (..), LineCap (..),
+                                             LineJoin (..), SomeColor (..),
+                                             colorToSRGBA)
+import           Diagrams.TwoD.Attributes   (Texture (..))
+import           Diagrams.TwoD.Path         hiding (fillRule, stroke)
+import           Numeric                    (showIntAtBase)
+import           System.IO                  (IOMode (..), withFile)
 
 data CMYK = CMYK
     { _cyan    :: Double
@@ -133,8 +137,8 @@ defaultFont = PostscriptFont "Helvetica" FontSlantNormal FontWeightNormal 1 True
 -- that we have emitted into the postscript file (at least
 -- ones that we do not protect in other ways).
 data DrawState = DS
-                 { _fillRule   :: FillRule
-                 , _font       :: PostscriptFont
+                 { _fillRule :: FillRule
+                 , _font     :: PostscriptFont
                  } deriving (Eq)
 
 makeLenses ''DrawState
@@ -392,7 +396,7 @@ strokeColor _ = return ()
 -- | Set the color of the fill.  Ignore gradients.
 fillColor :: Texture n -> Render ()
 fillColor (SC (SomeColor c)) = mkPSCall B.doubleDec "setrgbcolor" (colorPS c)
-fillColor _ = return ()
+fillColor _                  = return ()
 
 -- CMYK colors
 colorCMYK :: CMYK -> [Double]
@@ -530,7 +534,7 @@ fontFromName n s w = fontName ++ bold w ++ italic s
     bold FontWeightNormal = ""
     bold FontWeightBold   = "Bold"
 
-    italic FontSlantNormal = ""
-    italic FontSlantItalic = "Italic"
+    italic FontSlantNormal  = ""
+    italic FontSlantItalic  = "Italic"
     italic FontSlantOblique = "Oblique"
     italic _                = ""
