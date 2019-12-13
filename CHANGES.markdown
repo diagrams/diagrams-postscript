@@ -1,6 +1,9 @@
-## [1.5](https://github.com/diagrams/diagrams-postscript/tree/v1.5) (TBA)
+## [1.5](https://github.com/diagrams/diagrams-postscript/tree/v1.5) (2019-12-13)
 
-  - Make `Result Postscript V2 Double = Builder`, allowing rendering in-memory.
+  - Make `Result Postscript V2 Double = Builder`, allowing rendering
+    in-memory.
+  - Add `Semigroup (Render Postscript V2 Double)` instance.
+  - Updated to work with GHC 8.8.  Dropped support for GHC 7.10.
 
 ## [1.4](https://github.com/diagrams/diagrams-postscript/tree/v1.4) (2016-10-26)
 
