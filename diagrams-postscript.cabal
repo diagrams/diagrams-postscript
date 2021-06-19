@@ -23,7 +23,7 @@ Bug-reports:         http://github.com/diagrams/diagrams-postscript/issues
 Category:            Graphics
 Build-type:          Simple
 Cabal-version:       1.18
-Tested-with:         GHC ==8.0.2 || ==8.2.2 || ==8.4.3 || ==8.6.5 || ==8.8.1
+Tested-with:         GHC ==8.4.4 || ==8.6.5 || ==8.8.4 || ==8.10.4 || ==9.0.1
 Source-repository head
   type:     git
   location: https://github.com/diagrams/diagrams-postscript.git
