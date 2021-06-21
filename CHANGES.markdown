@@ -5,6 +5,18 @@
   - Add `Semigroup (Render Postscript V2 Double)` instance.
   - Updated to work with GHC 8.8.  Dropped support for GHC 7.10.
 
+  Hackage revision 1 (2020-02-10):
+
+  - allow `lens-4.19`
+
+  Hackage revision 2 (2021-06-21):
+
+  - `base-4.15` (GHC 9.0)
+  - `bytestring-0.11`
+  - `diagrams-core-1.5`
+  - `monoid-extras-0.6`
+  - `lens-5.0`
+
 ## [1.4](https://github.com/diagrams/diagrams-postscript/tree/v1.4) (2016-10-26)
 
 No significant changes, bumping version to correspond to diagrams 1.4
