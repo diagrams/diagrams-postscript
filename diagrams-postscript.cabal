@@ -14,7 +14,7 @@ Description:         This package provides a modular backend for rendering
                      .
                      * "Diagrams.Backend.CMYK" - Special support for CMYK
                      color attributes.
-Homepage:            http://projects.haskell.org/diagrams/
+Homepage:            https://diagrams.github.io/
 License:             BSD3
 License-file:        LICENSE
 Author:              Ryan Yates
