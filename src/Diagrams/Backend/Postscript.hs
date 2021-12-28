@@ -141,7 +141,7 @@ instance Backend Postscript V2 Double where
           , _psSizeSpec     :: SizeSpec V2 Double   -- ^ the requested size of the output
           , _psOutputFormat :: OutputFormat -- ^ the output format and associated options
           }
-    deriving (Show)
+    deriving (Show, Eq)
 
   renderRTree _ opts t =
     let surfaceF surface = fst (C.renderBuilder surface r)
