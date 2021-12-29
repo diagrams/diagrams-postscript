@@ -1,3 +1,14 @@
+## [1.5.1](https://github.com/diagrams/diagrams-postscript/tree/v1.5.1) (2021-12-29)
+
+  - Bump upper bounds to allow:
+
+      - `base-4.16`
+      - `semigroups-0.20`
+      - `lens-5.1`
+      - `hashable-1.4`
+
+  - Add `Eq` instance for `Options Postscript` (needed for `Hashable` instance).
+
 ## [1.5](https://github.com/diagrams/diagrams-postscript/tree/v1.5) (2019-12-13)
 
   - Make `Result Postscript V2 Double = Builder`, allowing rendering
