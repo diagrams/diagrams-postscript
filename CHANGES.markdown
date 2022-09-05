@@ -7,7 +7,11 @@
       - `lens-5.1`
       - `hashable-1.4`
 
-  - Add `Eq` instance for `Options Postscript` (needed for `Hashable` instance).
+  - Add `Eq` instance for `Options Postscript` (needed for `Hashable`
+    instance).
+
+  - r1 (2022-01-03): require `diagrams-lib >= 1.4.5`
+  - r2 (2022-09-05): allow `base-4.17`, `lens-5.2`, test on GHC 9.4
 
 ## [1.5](https://github.com/diagrams/diagrams-postscript/tree/v1.5) (2019-12-13)
 
