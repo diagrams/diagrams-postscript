@@ -86,6 +86,7 @@ import           Control.Applicative
 import           Data.Monoid                (mconcat, mempty)
 #endif
 import           Control.Lens               (Lens', makeLenses, use, (%=), (.=))
+import           Control.Monad
 import           Control.Monad.State.Strict
 import qualified Data.ByteString.Builder    as B
 import           Data.Char                  (isPrint, ord)
