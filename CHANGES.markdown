@@ -1,3 +1,7 @@
+## [1.5.1.1](https://github.com/diagrams/diagrams-postscript/tree/v1.5.1.1) (2023-03-03)
+
+  - Support for `mtl-2.3` (thanks to @FinleyMcIlwaine)
+
 ## [1.5.1](https://github.com/diagrams/diagrams-postscript/tree/v1.5.1) (2021-12-29)
 
   - Bump upper bounds to allow:
