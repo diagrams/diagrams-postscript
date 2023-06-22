@@ -1,3 +1,7 @@
+## [1.5.1.1-r1](https://github.com/diagrams/diagrams-postscript/tree/v1.5.1.1-r1) (2023-06-22)
+
+  - Allow `base-4.18` and test on GHC 9.6
+
 ## [1.5.1.1](https://github.com/diagrams/diagrams-postscript/tree/v1.5.1.1) (2023-03-03)
 
   - Support for `mtl-2.3` (thanks to @FinleyMcIlwaine)
