@@ -1,3 +1,8 @@
+## [1.5.1.1-r3](https://github.com/diagrams/diagrams-postscript/tree/v1.5.1.1-r3) (2024-07-02)
+
+  - Allow `base-4.20`, `lens-5.3`, and `containers-0.7`
+  - Test on GHC 9.10
+
 ## [1.5.1.1-r2](https://github.com/diagrams/diagrams-postscript/tree/v1.5.1.1-r2) (2024-01-20)
 
   - Allow `base-4.19`, `bytestring-0.12`, and test on GHC 9.8
