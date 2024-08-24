@@ -1,3 +1,7 @@
+## [1.5.1.1-r4](https://github.com/diagrams/diagrams-postscript/tree/v1.5.1.1-r4) (2024-08-23)
+
+  - Allow `hashable-1.5`
+
 ## [1.5.1.1-r3](https://github.com/diagrams/diagrams-postscript/tree/v1.5.1.1-r3) (2024-07-02)
 
   - Allow `base-4.20`, `lens-5.3`, and `containers-0.7`
