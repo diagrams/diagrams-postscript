@@ -28,7 +28,7 @@ module Diagrams.Backend.Postscript.CMYK (
   ) where
 
 import           Control.Lens          (Setter', sets, (.~))
-import           Data.Default.Class
+import           Data.Default
 import           Data.Maybe            (fromMaybe)
 import           Data.Monoid.Recommend
 import           Data.Semigroup
