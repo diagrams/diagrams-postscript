@@ -1,3 +1,7 @@
+## [1.5.2](https://github.com/diagrams/diagrams-postscript/tree/v1.5.2) (2024-10-31)
+
+  - Require `data-default-0.8`
+
 ## [1.5.1.1-r4](https://github.com/diagrams/diagrams-postscript/tree/v1.5.1.1-r4) (2024-08-23)
 
   - Allow `hashable-1.5`
