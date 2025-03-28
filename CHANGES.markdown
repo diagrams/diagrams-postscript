@@ -1,3 +1,7 @@
+## [1.5.2-r1](https://github.com/diagrams/diagrams-postscript/tree/v1.5.2-r1) (2025-03-28)
+
+  - allow `base-4.21`, `diagrams-lib-1.5`, and test on GHC 9.12
+
 ## [1.5.2](https://github.com/diagrams/diagrams-postscript/tree/v1.5.2) (2024-10-31)
 
   - Require `data-default-0.8`
