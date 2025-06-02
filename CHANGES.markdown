@@ -1,3 +1,7 @@
+## [1.5.2-r2](https://github.com/diagrams/diagrams-postscript/tree/v1.5.2-r2) (2025-06-02)
+
+  - allow `monoid-extras-0.7`
+
 ## [1.5.2-r1](https://github.com/diagrams/diagrams-postscript/tree/v1.5.2-r1) (2025-03-28)
 
   - allow `base-4.21`, `diagrams-lib-1.5`, and test on GHC 9.12
