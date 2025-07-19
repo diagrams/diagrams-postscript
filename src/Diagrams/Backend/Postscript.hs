@@ -24,14 +24,17 @@
 -- type in the diagram type construction
 --
 -- > d :: Diagram Postscript
--- > d = ...
+-- > d = square 10
 --
 -- and render giving the @Postscript@ token
 --
--- > renderDia Postscript (PostscriptOptions "file.eps" (Width 400) EPS) d
+-- > renderDia' d (PostscriptOptions "file.eps" (mkWidth 400) EPS)
 --
--- This IO action will write the specified file.
+-- This IO action will write the specified file. If you prefer to generate
+-- an in-memory 'ByteString', use 'renderDia'.
 --
+-- Check "Diagrams.Backend.Postscript.CmdLine" for the command-line
+-- interface documentation (a great way to start using this package).
 -----------------------------------------------------------------------------
 module Diagrams.Backend.Postscript
 
@@ -40,11 +43,13 @@ module Diagrams.Backend.Postscript
   , B
 
     -- * Postscript-specific options
+    -- | #postscript-options#
     -- $PostscriptOptions
 
   , Options(..), psfileName, psSizeSpec, psOutputFormat
 
     -- * Postscript-supported output formats
+
   , OutputFormat(..)
 
   , renderDias
@@ -204,11 +209,15 @@ renderDias opts ds = case opts^.psOutputFormat of
       sizes   = map (specToSize 1 . view psSizeSpec . fst) optsdss
       V2 w h  = foldBy (liftA2 max) zero sizes
 
+-- | Check [Postscript-specific options](#postscript-options) for a
+-- description of the available options.
 renderDia' :: QDiagram Postscript V2 Double Any -> Options Postscript V2 Double -> IO ()
 renderDia' d o = do
   let b = renderDia Postscript o d
   withFile (o ^. psfileName) WriteMode $ \h -> B.hPutBuilder h b
 
+-- | Check [Postscript-specific options](#postscript-options) for a
+-- description of the available options.
 renderDias' :: [QDiagram Postscript V2 Double Any] -> Options Postscript V2 Double -> IO ()
 renderDias' ds o = renderDias o ds >> return ()
 
