@@ -48,6 +48,8 @@ module Diagrams.Backend.Postscript
   , OutputFormat(..)
 
   , renderDias
+  , renderDia'
+  , renderDias'
   ) where
 
 import           Diagrams.Backend.Postscript.CMYK
@@ -67,6 +69,7 @@ import           Control.Monad.Trans              (lift)
 import           Data.Maybe                       (catMaybes, isJust)
 
 import qualified Data.ByteString.Builder          as B
+import           System.IO                        (IOMode (..), withFile)
 
 import qualified Data.Foldable                    as F
 import           Data.Hashable                    (Hashable (..))
@@ -200,6 +203,14 @@ renderDias opts ds = case opts^.psOutputFormat of
       rs      = map (runRenderM . runC . toRender . toRTree g2o . snd) optsdss
       sizes   = map (specToSize 1 . view psSizeSpec . fst) optsdss
       V2 w h  = foldBy (liftA2 max) zero sizes
+
+renderDia' :: QDiagram Postscript V2 Double Any -> Options Postscript V2 Double -> IO ()
+renderDia' d o = do
+  let b = renderDia Postscript o d
+  withFile (o ^. psfileName) WriteMode $ \h -> B.hPutBuilder h b
+
+renderDias' :: [QDiagram Postscript V2 Double Any] -> Options Postscript V2 Double -> IO ()
+renderDias' ds o = renderDias o ds >> return ()
 
 renderC :: (Renderable a Postscript, V a ~ V2, N a ~ Double) => a -> RenderM ()
 renderC = runC . render Postscript
