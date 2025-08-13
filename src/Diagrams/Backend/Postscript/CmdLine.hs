@@ -73,7 +73,6 @@ module Diagrams.Backend.Postscript.CmdLine
       ) where
 
 import qualified Data.ByteString.Builder     as B
-import           System.IO                   (IOMode (..), withFile)
 
 import           Diagrams.Backend.CmdLine
 import           Diagrams.Backend.Postscript
@@ -163,16 +162,6 @@ chooseRender opts renderer =
 
            renderer (PostscriptOptions (opts^.output) sizeSpec outfmt)
        | otherwise -> putStrLn $ "Unknown file type: " ++ last ps
-
-renderDias' :: [QDiagram Postscript V2 Double Any] -> Options Postscript V2 Double -> IO ()
-renderDias' ds o = renderDias o ds >> return ()
-
-renderDia' :: QDiagram Postscript V2 Double Any -> Options Postscript V2 Double -> IO ()
-renderDia' d o = do
-  let b = renderDia Postscript o d
-  withFile (o ^. psfileName) WriteMode $ \h -> B.hPutBuilder h b
-
-
 
 -- | @multiMain@ is like 'defaultMain', except instead of a single
 --   diagram it takes a list of diagrams paired with names as input.
