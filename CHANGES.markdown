@@ -1,3 +1,8 @@
+## [1.5.3](https://github.com/diagrams/diagrams-postscript/tree/v1.5.3) (2025-08-13)
+
+  - Export new functions `renderDia'` and `renderDias'`
+  - Improve package documentation
+
 ## [1.5.2-r2](https://github.com/diagrams/diagrams-postscript/tree/v1.5.2-r2) (2025-06-02)
 
   - allow `monoid-extras-0.7`
