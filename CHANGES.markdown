@@ -1,3 +1,9 @@
+## [1.5.3-r1](https://github.com/diagrams/diagrams-postscript/tree/v1.5.3-r1) (2026-11-11)
+
+  - Allow `base-4.22` and `diagrams-lib-1.6`
+  - Remove unneeded `semigroups` dep
+  - Test on GHC 9.14
+
 ## [1.5.3](https://github.com/diagrams/diagrams-postscript/tree/v1.5.3) (2025-08-13)
 
   - Export new functions `renderDia'` and `renderDias'`
